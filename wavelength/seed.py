@@ -82,7 +82,6 @@ SPECTRUMS = [
     ("Ethical", "Unethical", "General", "medium"),
     ("Good gift", "Bad gift", "General", "medium"),
     ("Fashionable", "Unfashionable", "General", "medium"),
-    ("Terrorist", "Freedom fighter", "General", "medium"),
     ("Forgiveable", "Unforgiveable", "General", "medium"),
     ("Harmful", "Harmless", "General", "medium"),
     ("Hygienic", "Unhygienic", "General", "medium"),
@@ -168,7 +167,6 @@ SPECTRUMS = [
     ("Not huggable", "Huggable", "General", "medium"),
     ("Homogenous", "Heterogeneous", "General", "medium"),
     ("Exclusive", "Inclusive", "General", "medium"),
-    ("Good dog breed", "Bad dog breed", "General", "medium"),
     ("Commerce", "Art", "General", "medium"),
     ("Pop icon", "One hit wonder", "General", "medium"),
     ("Good advice", "Bad advice", "General", "medium"),
@@ -202,9 +200,41 @@ SPECTRUMS = [
 # Entries are (left_label, right_label, clue_text, target_position).
 SEED_CLUES: list[tuple[str, str, str, int]] = []
 
+ACTIVE_SPECTRUM_PAIRS = {(left, right) for left, right, _, _ in SPECTRUMS}
+
+
+def suppress_removed_seed_spectrums() -> None:
+    """Deactivate seed-catalog spectrums that were removed from SPECTRUMS.
+
+    The game treats the seed list as the source of truth for available
+    spectrums. When a pair is deleted from SPECTRUMS later, existing local
+    databases may still contain that spectrum and clues attached to it. Rather
+    than hard-deleting rows that other tables may reference, this soft-deletes
+    the spectrum and its clues by flipping their is_active flags so prompts,
+    leaderboards, history, and stats can consistently suppress them.
+    """
+    removed_spectrums = [
+        spectrum
+        for spectrum in Spectrum.query.filter_by(is_active=True).all()
+        if (spectrum.left_label, spectrum.right_label) not in ACTIVE_SPECTRUM_PAIRS
+    ]
+    if not removed_spectrums:
+        return
+
+    removed_spectrum_ids = [spectrum.id for spectrum in removed_spectrums]
+    for spectrum in removed_spectrums:
+        spectrum.is_active = False
+
+    Clue.query.filter(
+        Clue.spectrum_id.in_(removed_spectrum_ids),
+        Clue.is_active.is_(True),
+    ).update({Clue.is_active: False}, synchronize_session=False)
+
 
 def seed_if_empty() -> None:
     if Spectrum.query.first() is not None:
+        suppress_removed_seed_spectrums()
+        db.session.commit()
         return
 
     spectra_by_pair = {}

@@ -72,7 +72,7 @@ def submit_guess():
         return jsonify({"error": "invalid_input", "message": "Both dial values must be numbers from 0 to 100."}), 400
 
     clue = Clue.query.get(clue_id)
-    if clue is None or not clue.is_active:
+    if clue is None or not clue.is_active or not clue.spectrum.is_active:
         return jsonify({"error": "not_found", "message": "This clue is not available."}), 404
 
     if clue.author_user_id == user.id:
@@ -120,6 +120,11 @@ def submit_clue():
         return jsonify({"error": "invalid_task", "message": "This cluer task is not available."}), 404
     if task.used_at is not None:
         return jsonify({"error": "task_used", "message": "This cluer task has already been submitted."}), 409
+    if task.spectrum is None:
+        current_app.logger.error("Cluer task %s has no spectrum and cannot create a clue.", task.id)
+        return jsonify({"error": "invalid_task", "message": "This cluer task is not available."}), 404
+    if not task.spectrum.is_active:
+        return jsonify({"error": "inactive_spectrum", "message": "This spectrum is no longer available."}), 409
 
     normalized_text = normalize_clue_text(text)
     clue = Clue(
@@ -177,7 +182,15 @@ def leaderboards():
     rows_by_user: dict[int, dict] = {}
 
     if role == "guesser":
-        query = Guess.query.join(User)
+        # Deleted seed-catalog spectrums leave their historical rows in the
+        # database as inactive records, so leaderboard scoring must explicitly
+        # ignore guesses whose clue or spectrum has been suppressed.
+        query = (
+            Guess.query.join(Clue)
+            .join(Spectrum)
+            .join(User, Guess.user_id == User.id)
+            .filter(Clue.is_active.is_(True), Spectrum.is_active.is_(True))
+        )
         query = _date_filter(query, Guess, period)
         guesses = query.all()
         for guess in guesses:
@@ -195,7 +208,14 @@ def leaderboards():
             row["total_points"] += int(result.score)
             row["scored_entries"] += 1
     else:
-        query = Clue.query.join(User, Clue.author_user_id == User.id).filter(Clue.is_seed.is_(False))
+        # Cluer leaderboards follow the same suppression rules as prompts:
+        # inactive clues and clues on inactive spectrums should not contribute
+        # score after a spectrum has been removed from the active catalog.
+        query = (
+            Clue.query.join(User, Clue.author_user_id == User.id)
+            .join(Spectrum)
+            .filter(Clue.is_seed.is_(False), Clue.is_active.is_(True), Spectrum.is_active.is_(True))
+        )
         query = _date_filter(query, Clue, period)
         clues = query.all()
         for clue in clues:
@@ -240,7 +260,16 @@ def history():
     user = current_user()
 
     guess_rows = []
-    guesses = Guess.query.filter_by(user_id=user.id).order_by(Guess.created_at.desc()).limit(200).all()
+    # History mirrors the playable catalog instead of showing soft-deleted
+    # clues for spectrums that have been removed from SPECTRUMS.
+    guesses = (
+        Guess.query.join(Clue)
+        .join(Spectrum)
+        .filter(Guess.user_id == user.id, Clue.is_active.is_(True), Spectrum.is_active.is_(True))
+        .order_by(Guess.created_at.desc())
+        .limit(200)
+        .all()
+    )
     for guess in guesses:
         result = score_guess(guess)
         clue = guess.clue
@@ -260,7 +289,15 @@ def history():
         )
 
     clue_rows = []
-    clues = Clue.query.filter_by(author_user_id=user.id).order_by(Clue.created_at.desc()).limit(200).all()
+    # Suppressed clues remain in the database for referential integrity, but
+    # they are intentionally omitted from the player's visible clue history.
+    clues = (
+        Clue.query.join(Spectrum)
+        .filter(Clue.author_user_id == user.id, Clue.is_active.is_(True), Spectrum.is_active.is_(True))
+        .order_by(Clue.created_at.desc())
+        .limit(200)
+        .all()
+    )
     for clue in clues:
         result = score_clue(clue)
         clue_rows.append(
@@ -286,8 +323,8 @@ def stats():
     return jsonify(
         {
             "users": User.query.count(),
-            "spectrums": Spectrum.query.count(),
-            "clues": Clue.query.count(),
+            "spectrums": Spectrum.query.filter_by(is_active=True).count(),
+            "clues": Clue.query.join(Spectrum).filter(Clue.is_active.is_(True), Spectrum.is_active.is_(True)).count(),
             "guesses": Guess.query.count(),
             "min_guesses_for_score": current_app.config["MIN_GUESSES_FOR_SCORE"],
         }
