@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Play · Wavelength World{% endblock %}
+{% block body %}
+<header class="app-header">
+  <div>
+    <h1>Wavelength World</h1>
+    <p class="muted">Logged in as <strong>{{ session.username }}</strong></p>
+  </div>
+  <form action="{{ url_for('web.logout') }}" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="secondary">Logout</button>
+  </form>
+</header>
+
+<main class="app-shell">
+  <section class="game-column">
+    <div class="top-actions">
+      <span id="globalStatus" class="muted"></span>
+    </div>
+
+    <article class="panel" id="guesserPanel">
+      <div class="panel-header stacked-action">
+        <div>
+          <h2>Guesser</h2>
+          <div class="step-instructions muted">
+            <p>Step 1: Submit your own opinion</p>
+            <p>Step 2: Guess what other people think</p>
+          </div>
+        </div>
+        <button id="playAnotherGuesserBtn" type="button" class="secondary">Play another</button>
+      </div>
+
+      <div id="guesserEmpty" class="empty hidden">No guesser prompts available. Try submitting clues or click Play another later.</div>
+      <div id="guesserContent">
+        <div class="clue-box">
+          <span class="label">Clue</span>
+          <strong id="guesserClue">Loading…</strong>
+        </div>
+        <div id="guessDialStage" class="dial-stage">
+          <h3 id="guessDialTitle">What's your personal opinion</h3>
+          <div id="guessDial" class="dial" data-value="50"></div>
+          <div class="spectrum-endpoints">
+            <span id="guesserLeft" class="spectrum-endpoint spectrum-endpoint-left">Left</span>
+            <span id="guesserRight" class="spectrum-endpoint spectrum-endpoint-right">Right</span>
+          </div>
+        </div>
+        <button id="submitGuessBtn" type="button">Submit Opinion</button>
+        <div id="guessResult" class="guess-result hidden"></div>
+      </div>
+    </article>
+
+    <article class="panel" id="cluerPanel">
+      <div class="panel-header stacked-action">
+        <div>
+          <h2>Cluer</h2>
+          <p class="muted">Write a clue that should make people land near the target.</p>
+        </div>
+        <button id="playAnotherCluerBtn" type="button" class="secondary">Play another</button>
+      </div>
+
+      <div id="cluerEmpty" class="empty hidden">No active spectrums found.</div>
+      <div id="cluerContent">
+        <div class="dial-stage">
+          <div id="targetDial" class="dial target-mode" data-value="50"></div>
+          <div class="spectrum-endpoints">
+            <span id="cluerLeft" class="spectrum-endpoint spectrum-endpoint-left">Left</span>
+            <span id="cluerRight" class="spectrum-endpoint spectrum-endpoint-right">Right</span>
+          </div>
+        </div>
+        <label for="clueInput">Your clue</label>
+        <textarea id="clueInput" rows="3" placeholder="e.g., gas station sushi"></textarea>
+        <button id="submitClueBtn" type="button">Submit Clue</button>
+        <div id="clueResult" class="result hidden"></div>
+      </div>
+    </article>
+
+    <article class="panel history-panel">
+      <div class="panel-header">
+        <div>
+          <h2>My History</h2>
+          <p class="muted">Scores recalculate as new people guess.</p>
+        </div>
+        <button id="refreshHistoryBtn" type="button" class="secondary">Refresh</button>
+      </div>
+      <div class="tabs">
+        <button class="tab active" data-tab="guesses">Past Guesses</button>
+        <button class="tab" data-tab="clues">Past Clues</button>
+      </div>
+      <div id="historyGuesses" class="history-table-wrap"></div>
+      <div id="historyClues" class="history-table-wrap hidden"></div>
+    </article>
+  </section>
+
+  <aside class="leaderboard-sidebar panel">
+    <div class="panel-header compact">
+      <div>
+        <h2>Leaderboards</h2>
+        <p class="muted">Average points per scored round.</p>
+      </div>
+    </div>
+    <div id="leaderboardStack" class="leaderboard-stack"></div>
+    <div id="siteStats" class="site-stats muted"></div>
+  </aside>
+</main>
+
+<script src="{{ url_for('static', filename='js/dial.js') }}"></script>
+<script src="{{ url_for('static', filename='js/play.js') }}"></script>
+{% endblock %}
