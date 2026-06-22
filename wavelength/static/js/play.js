@@ -219,6 +219,41 @@
     }
   }
 
+  async function refreshCluerAfterSuccessfulSubmission() {
+    // Once the server accepts a clue, that exact Cluer task is spent. This helper
+    // immediately requests the next target so the player can keep cluing without
+    // clicking Play another, while refreshing leaderboards/history/stats in
+    // parallel because those panels are useful but not required for the next turn.
+    const [nextPromptResult, leaderboardsResult, historyResult, statsResult] = await Promise.allSettled([
+      apiFetch('/api/prompts?section=cluer'),
+      loadLeaderboards(),
+      loadHistory(),
+      loadStats(),
+    ]);
+
+    if (nextPromptResult.status === 'fulfilled') {
+      renderCluer(nextPromptResult.value.cluer);
+    } else {
+      // The clue was already submitted successfully, so a follow-up prompt failure
+      // should leave the used task locked and tell the player exactly what still
+      // needs retrying instead of making the submission look like it failed.
+      $('submitClueBtn').disabled = true;
+      $('clueInput').disabled = true;
+      showResult('clueResult', 'Clue submitted, but the next cluer prompt could not load. Click Play another to try again.', 'error');
+    }
+
+    if (
+      leaderboardsResult.status === 'rejected'
+      || historyResult.status === 'rejected'
+      || statsResult.status === 'rejected'
+    ) {
+      setStatus('Clue submitted. Some score panels may need a refresh.');
+      return;
+    }
+
+    setStatus('');
+  }
+
   async function submitGuess() {
     if (!state.guesser) return;
 
@@ -276,9 +311,9 @@
         }),
       });
       $('clueInput').disabled = true;
-      showResult('clueResult', data.message || scoreHtml(data), 'success');
-      await Promise.all([loadLeaderboards(), loadHistory(), loadStats()]);
-      setStatus('');
+      showResult('clueResult', data.message || 'Clue submitted. Loading the next target…', 'success');
+      setStatus('Clue submitted. Loading the next target…');
+      await refreshCluerAfterSuccessfulSubmission();
     } catch (error) {
       $('submitClueBtn').disabled = false;
       showResult('clueResult', error.message, 'error');
@@ -431,22 +466,63 @@
   }
 
   function renderClueHistoryGraphic(row) {
-    return renderHistoryArc({
-      bandCenter: row.target_position,
-      ariaLabel: 'Black pin shows the true target. Red pin shows the current global average opinion.',
-      markers: [
-        { value: row.target_position, className: 'history-marker-target' },
-        { value: row.current_global_average, className: 'history-marker-average' },
-      ],
-    });
+    // Clue history compares two different meanings on the same dial: the target
+    // the cluer was asked to hit and the current global average produced by the
+    // guessers. The legend makes that distinction visible without forcing players
+    // to infer it from marker color alone.
+    return `
+      ${renderHistoryArc({
+        bandCenter: row.target_position,
+        ariaLabel: 'Black pin shows the true target. Red pin shows the current global average opinion.',
+        markers: [
+          { value: row.target_position, className: 'history-marker-target' },
+          { value: row.current_global_average, className: 'history-marker-average' },
+        ],
+      })}
+      <div class="history-legend" aria-hidden="true">
+        <span><span class="history-legend-swatch history-legend-target"></span>Your target</span>
+        <span><span class="history-legend-swatch history-legend-average"></span>Global average</span>
+      </div>`;
+  }
+
+  function renderClueHistoryResult(row) {
+    // Clue scoring bands only make sense after enough people have guessed and a
+    // global average exists. While a clue is pending, hide the dial entirely so
+    // players do not see bands that imply a score has already been calculated.
+    if (row.status === 'pending') {
+      return `<div class="history-pending-note">Waiting for more guesses before showing the target comparison.</div>`;
+    }
+
+    return renderClueHistoryGraphic(row);
+  }
+
+  function historyExplanation(kind) {
+    // The history tabs are rendered from JavaScript because the rows are fetched
+    // asynchronously. Keeping each scoring explanation with its table ensures the
+    // right description appears whenever the active tab is populated or refreshed.
+    if (kind === 'guesses') {
+      return '<p class="history-description muted">Past guesses score higher when your average-opinion guess lands closer to the global average opinion for that clue.</p>';
+    }
+
+    return "<p class=\"history-description muted\">Past clues score higher when the global average of other people's guesses lands closer to the target you were given for your clue.</p>";
+  }
+
+  function renderHistoryTable(kind, tableHtml) {
+    return `
+      ${historyExplanation(kind)}
+      ${tableHtml}`;
+  }
+
+  function emptyHistory(kind, message) {
+    return renderHistoryTable(kind, `<div class="empty">${message}</div>`);
   }
 
   function renderGuessHistory(rows) {
     if (!rows.length) {
-      $('historyGuesses').innerHTML = '<div class="empty">No guesses yet.</div>';
+      $('historyGuesses').innerHTML = emptyHistory('guesses', 'No guesses yet.');
       return;
     }
-    $('historyGuesses').innerHTML = `
+    $('historyGuesses').innerHTML = renderHistoryTable('guesses', `
       <table>
         <thead><tr>
           <th>Date</th><th>Spectrum</th><th>Clue</th><th>Result</th><th class="numeric">Points</th>
@@ -461,15 +537,15 @@
               <td class="numeric">${statusText(row)}</td>
             </tr>`).join('')}
         </tbody>
-      </table>`;
+      </table>`);
   }
 
   function renderClueHistory(rows) {
     if (!rows.length) {
-      $('historyClues').innerHTML = '<div class="empty">No clues yet.</div>';
+      $('historyClues').innerHTML = emptyHistory('clues', 'No clues yet.');
       return;
     }
-    $('historyClues').innerHTML = `
+    $('historyClues').innerHTML = renderHistoryTable('clues', `
       <table>
         <thead><tr>
           <th>Date</th><th>Spectrum</th><th>Clue</th><th>Result</th><th class="numeric">Points</th>
@@ -480,11 +556,11 @@
               <td>${formatDate(row.created_at)}</td>
               <td>${escapeHtml(row.spectrum)}</td>
               <td>${escapeHtml(row.clue_text)}</td>
-              <td class="history-arc-cell">${renderClueHistoryGraphic(row)}</td>
+              <td class="history-arc-cell">${renderClueHistoryResult(row)}</td>
               <td class="numeric">${statusText(row)}</td>
             </tr>`).join('')}
         </tbody>
-      </table>`;
+      </table>`);
   }
 
   async function loadHistory() {

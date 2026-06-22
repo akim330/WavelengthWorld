@@ -125,6 +125,32 @@ h3 { font-size: 1rem; margin-bottom: 0.7rem; }
 }
 .panel-header.stacked-action button { align-self: flex-start; }
 .panel-header.compact { margin-bottom: 0.8rem; }
+.game-explainer {
+  line-height: 1.55;
+}
+.game-explainer p,
+.game-explainer ul {
+  max-width: 76rem;
+  margin-bottom: 0.9rem;
+}
+.game-explainer ul {
+  padding-left: 1.25rem;
+}
+.game-explainer li + li {
+  margin-top: 0.45rem;
+}
+.mode-explainer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.mode-explainer-grid h3 {
+  margin-bottom: 0.35rem;
+}
+.mode-explainer-grid p,
+.mode-explainer-grid ul {
+  margin-bottom: 0;
+}
 .step-instructions {
   display: grid;
   gap: 0.25rem;
@@ -300,6 +326,11 @@ tr:last-child td { border-bottom: 0; }
 .tab { background: white; color: var(--ink); border: 1px solid var(--border); box-shadow: none; }
 .tab.active { background: var(--accent); color: white; }
 .history-table-wrap { overflow-x: auto; }
+.history-description {
+  margin-bottom: 0.8rem;
+  max-width: 56rem;
+  line-height: 1.45;
+}
 .history-table-wrap table { min-width: 760px; }
 .history-arc-cell {
   width: 250px;
@@ -342,6 +373,34 @@ tr:last-child td { border-bottom: 0; }
 .history-marker-personal { stroke: #246bfe; }
 .history-marker-average { stroke: #c62828; }
 .history-marker-target { stroke: #202020; }
+.history-legend {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  margin-top: -0.25rem;
+}
+.history-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.history-legend-swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 999px;
+  display: inline-block;
+}
+.history-legend-target { background: #202020; }
+.history-legend-average { background: #c62828; }
+.history-pending-note {
+  color: var(--muted);
+  max-width: 13rem;
+  line-height: 1.35;
+}
 .status-pending { color: var(--muted); }
 .status-scored { color: var(--success); font-weight: 800; }
 
@@ -349,6 +408,7 @@ tr:last-child td { border-bottom: 0; }
   .app-shell { grid-template-columns: 1fr; }
   .leaderboard-sidebar { position: static; }
   .dial-grid { grid-template-columns: 1fr; }
+  .mode-explainer-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 600px) {

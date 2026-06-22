@@ -14,6 +14,66 @@
 
 <main class="app-shell">
   <section class="game-column">
+    <article class="panel game-explainer" aria-labelledby="gameExplainerTitle">
+      <h2 id="gameExplainerTitle">The Game</h2>
+      <ul>
+        <li>
+          Wavelength World is an asynchronous version of Wavelength, the board game where a clue-giver
+          tries to guide guessers to a hidden point on a spectrum.
+        </li>
+        <li>
+          In the board game, the spectrum might run from something like cold to hot, underrated to overrated,
+          or harmless to dangerous.
+        </li>
+        <li>
+          Here, it's the same idea, but you're guessing whatever the average opinion is of everyone else
+          who plays this game.
+        </li>
+        
+
+      </ul>
+      <h2 id="gameExplainerTitle">Two ways to play</h2>
+      <div class="mode-explainer-grid">
+        <section>
+          <h3>Guessing</h3>
+          <ul>
+            <li>
+              First, contribute your own honest opinion about where the clue belongs on the spectrum.
+            </li>
+            <li>
+              That personal opinion becomes part of the dataset that generates the "answer" for the clue
+              for everyone else.
+            </li>
+            <li>
+              Then make the scored guess: where do you think the global average will land after everyone
+              who answers this clue has weighed in?
+            </li>
+            <li>
+              Your guesser leaderboard score depends on how accurately you place the pin on that global
+              average opinion, not on whether your personal opinion matches anyone else's.
+            </li>
+          </ul>
+        </section>
+        <section>
+          <h3>Cluing</h3>
+          <ul>
+            <li>
+              The game gives you a target spot on a spectrum and you create a clue that should make other
+              people land near that target.
+            </li>
+            <li>
+              After people guess on your clue, your cluer score is based on how close their average guesses
+              are to the target you were shown.
+            </li>
+            <li>
+              Guessers and cluers have separate leaderboards, so you can compete both at reading the crowd
+              and at writing clues that steer the crowd.
+            </li>
+          </ul>
+        </section>
+      </div>
+    </article>
+
     <div class="top-actions">
       <span id="globalStatus" class="muted"></span>
     </div>
@@ -23,8 +83,8 @@
         <div>
           <h2>Guesser</h2>
           <div class="step-instructions muted">
-            <p>Step 1: Submit your own opinion</p>
-            <p>Step 2: Guess what other people think</p>
+            <p>Step 1: Submit your own opinion (Not scored! This is just to contribute to the global average)</p>
+            <p>Step 2: Guess what other people think (Scored! This is what you believe the global average will be)</p>
           </div>
         </div>
         <button id="playAnotherGuesserBtn" type="button" class="secondary">Play another</button>
@@ -77,7 +137,7 @@
     <article class="panel history-panel">
       <div class="panel-header">
         <div>
-          <h2>My History</h2>
+          <h2>My History and Scores</h2>
           <p class="muted">Scores recalculate as new people guess.</p>
         </div>
         <button id="refreshHistoryBtn" type="button" class="secondary">Refresh</button>
