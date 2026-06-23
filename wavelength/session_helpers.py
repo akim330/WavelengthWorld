@@ -19,7 +19,11 @@ def current_user() -> User | None:
     if user is None:
         session.pop("user_id", None)
         session.pop("username", None)
+        session.pop("is_guest", None)
         return None
+    # Keep template/session hints aligned with the database record so older
+    # sessions created before guest mode still render the correct navigation.
+    session["is_guest"] = user.is_guest
     return user
 
 

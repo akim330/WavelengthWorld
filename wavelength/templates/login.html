@@ -4,7 +4,7 @@
 <main class="login-page">
   <section class="login-card">
     <h1>Wavelength World</h1>
-    <p class="muted">Enter a username to play. Usernames are case-insensitive and passwordless for this prototype but I can add actual login later if more people play this</p>
+    <p class="muted">Log in to keep your score history. New players can create an account, or you can play as a guest without a way to recover that guest history later.</p>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -18,9 +18,54 @@
 
     <form action="{{ url_for('web.login') }}" method="post" class="login-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label for="username">Username</label>
-      <input id="username" name="username" type="text" autocomplete="username" required maxlength="80" autofocus>
-      <button type="submit">Play</button>
+      {% if mode == "lookup" %}
+        <input type="hidden" name="action" value="lookup">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required maxlength="80" value="{{ username }}" autofocus>
+        <button type="submit">Continue</button>
+      {% elif mode == "login" %}
+        <input type="hidden" name="action" value="login">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required maxlength="80" value="{{ username }}" readonly>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+        <button type="submit">Log In</button>
+        <a class="login-back-link" href="{{ url_for('web.index') }}">Use a different username</a>
+      {% elif mode == "claim" %}
+        <input type="hidden" name="action" value="claim">
+        <p class="login-mode-note">This username already exists from the old passwordless login. Set a password now to keep using this account.</p>
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required maxlength="80" value="{{ username }}" readonly>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" autofocus>
+        <label for="password_confirm">Confirm password</label>
+        <input id="password_confirm" name="password_confirm" type="password" autocomplete="new-password" required minlength="8">
+        <label for="email">Recovery email <span class="optional-label">optional</span></label>
+        <input id="email" name="email" type="email" autocomplete="email" value="{{ email }}">
+        <p class="login-help">Email is only used so you can recover or get help with this account later. You can leave it blank.</p>
+        <button type="submit">Set Password</button>
+        <a class="login-back-link" href="{{ url_for('web.index') }}">Use a different username</a>
+      {% elif mode == "register" %}
+        <input type="hidden" name="action" value="register">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required maxlength="80" value="{{ username }}" autofocus>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8">
+        <label for="password_confirm">Confirm password</label>
+        <input id="password_confirm" name="password_confirm" type="password" autocomplete="new-password" required minlength="8">
+        <label for="email">Recovery email <span class="optional-label">optional</span></label>
+        <input id="email" name="email" type="email" autocomplete="email" value="{{ email }}">
+        <p class="login-help">Email is only used so you can recover or get help with this account later. You can leave it blank.</p>
+        <button type="submit">Create Account</button>
+        <a class="login-back-link" href="{{ url_for('web.index') }}">Use a different username</a>
+      {% endif %}
+    </form>
+
+    <form action="{{ url_for('web.login') }}" method="post" class="guest-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="action" value="guest">
+      <button type="submit" class="secondary">Play as Guest</button>
+      <p class="login-help">Guest play starts right away, but you cannot log back in later to continue that score history.</p>
     </form>
   </section>
 </main>

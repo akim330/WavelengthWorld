@@ -7,17 +7,32 @@ from config import Config
 db = SQLAlchemy()
 
 
-def ensure_user_settings_columns():
+def ensure_user_columns():
     inspector = inspect(db.engine)
     user_columns = {column["name"] for column in inspector.get_columns("users")}
-    if "show_on_leaderboards" in user_columns:
-        return
 
     # create_all() does not alter existing tables, so this small additive schema
-    # sync keeps the leaderboard visibility preference available for current
-    # local databases without introducing a full migration framework.
+    # sync keeps newly-added user account fields available for current local and
+    # hosted databases without introducing a full migration framework.
     with db.engine.begin() as connection:
-        connection.execute(text("ALTER TABLE users ADD COLUMN show_on_leaderboards BOOLEAN NOT NULL DEFAULT TRUE"))
+        if "show_on_leaderboards" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN show_on_leaderboards BOOLEAN NOT NULL DEFAULT TRUE"))
+        if "password_hash" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
+        if "email" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR(255)"))
+        if "email_normalized" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN email_normalized VARCHAR(255)"))
+        if "is_guest" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN is_guest BOOLEAN NOT NULL DEFAULT FALSE"))
+        if "password_set_at" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN password_set_at TIMESTAMP"))
+
+        # Existing databases cannot receive the model-level unique constraint via
+        # create_all(), so create the same nullable unique lookup index manually.
+        # Both SQLite and PostgreSQL allow many NULL values in a unique index,
+        # which keeps optional recovery email truly optional.
+        connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email_normalized ON users (email_normalized)"))
 
 
 def create_app(config_class=Config):
@@ -37,7 +52,7 @@ def create_app(config_class=Config):
         from .seed import seed_if_empty
 
         db.create_all()
-        ensure_user_settings_columns()
+        ensure_user_columns()
         seed_if_empty()
 
     return app

@@ -437,20 +437,34 @@
       </div>`;
   }
 
-  function renderGuessHistoryGraphic(row) {
+  function renderHistoryDiagram(row, arcHtml, legendHtml) {
+    // History rows now include the spectrum poles directly beneath the compact
+    // arc, matching the main dial layout while saving a separate table column.
     return `
-      ${window.WavelengthHistoryGraphics.renderHistoryArc({
+      <div class="history-diagram">
+        ${arcHtml}
+        <div class="history-spectrum-endpoints">
+          <span>${escapeHtml(row.spectrum_left_label || '')}</span>
+          <span>${escapeHtml(row.spectrum_right_label || '')}</span>
+        </div>
+        ${legendHtml}
+      </div>`;
+  }
+
+  function renderGuessHistoryGraphic(row) {
+    const arcHtml = window.WavelengthHistoryGraphics.renderHistoryArc({
         bandCenter: row.current_global_average,
         ariaLabel: 'Blue pin shows your personal opinion. Red pin shows your scored guess for the average opinion. Bands are centered on the global average.',
         markers: [
           { value: row.personal_position, className: 'history-marker-personal' },
           { value: row.predicted_average_position, className: 'history-marker-average' },
         ],
-      })}
-      ${renderHistoryLegend([
+      });
+    const legendHtml = renderHistoryLegend([
         { className: 'history-legend-you', label: 'Personal opinion' },
         { className: 'history-legend-average', label: 'Guess for global average' },
-      ])}`;
+      ]);
+    return renderHistoryDiagram(row, arcHtml, legendHtml);
   }
 
   function renderClueHistoryGraphic(row) {
@@ -458,19 +472,19 @@
     // the cluer was asked to hit and the current global average produced by the
     // guessers. Its scoring bands are centered on the current global average so
     // the visual scoring frame matches guess history and friend comparisons.
-    return `
-      ${window.WavelengthHistoryGraphics.renderHistoryArc({
+    const arcHtml = window.WavelengthHistoryGraphics.renderHistoryArc({
         bandCenter: row.current_global_average,
         ariaLabel: 'Black pin shows the true target. Red pin shows the current global average opinion. Bands are centered on the global average.',
         markers: [
           { value: row.target_position, className: 'history-marker-target' },
           { value: row.current_global_average, className: 'history-marker-average' },
         ],
-      })}
-      ${renderHistoryLegend([
+      });
+    const legendHtml = renderHistoryLegend([
         { className: 'history-legend-target', label: 'Your target' },
         { className: 'history-legend-average', label: 'Global average' },
-      ])}`;
+      ]);
+    return renderHistoryDiagram(row, arcHtml, legendHtml);
   }
 
   function renderClueHistoryResult(row) {
@@ -571,13 +585,12 @@
     $('historyGuesses').innerHTML = renderHistoryTable('guesses', `
       <table>
         <thead><tr>
-          <th>Date</th><th>Spectrum</th><th>Clue</th><th>Result</th><th class="numeric">Points</th>
+          <th>Date</th><th>Clue</th><th>Result</th><th class="numeric">Points</th>
         </tr></thead>
         <tbody>
           ${visibleRows.map(row => `
             <tr>
               <td>${formatDate(row.created_at)}</td>
-              <td>${escapeHtml(row.spectrum)}</td>
               <td>${escapeHtml(row.clue_text)}</td>
               <td class="history-arc-cell">${renderGuessHistoryGraphic(row)}</td>
               <td class="numeric">${statusText(row)}</td>
@@ -598,13 +611,12 @@
     $('historyClues').innerHTML = renderHistoryTable('clues', `
       <table>
         <thead><tr>
-          <th>Date</th><th>Spectrum</th><th>Clue</th><th>Result</th><th class="numeric">Points</th>
+          <th>Date</th><th>Clue</th><th>Result</th><th class="numeric">Points</th>
         </tr></thead>
         <tbody>
           ${visibleRows.map(row => `
             <tr>
               <td>${formatDate(row.created_at)}</td>
-              <td>${escapeHtml(row.spectrum)}</td>
               <td>${escapeHtml(row.clue_text)}</td>
               <td class="history-arc-cell">${renderClueHistoryResult(row)}</td>
               <td class="numeric">${statusText(row)}</td>

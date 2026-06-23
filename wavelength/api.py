@@ -78,6 +78,18 @@ def serialize_friend_request_list(friend_requests: list[FriendRequest], directio
     return rows
 
 
+def reject_guest_social_user(user: User | None):
+    # Guest accounts are temporary identities with no recovery path, so social
+    # features are blocked at the API layer even if a guest reaches these
+    # endpoints through a stale page, copied URL, or manual request.
+    if user is None:
+        current_app.logger.error("api_login_required allowed a missing user into a friends endpoint.")
+        return jsonify({"error": "login_required"}), 401
+    if user.is_guest:
+        return jsonify({"error": "guest_not_allowed", "message": "Create an account to use friends."}), 403
+    return None
+
+
 def serialize_spectrum_poles(spectrum: Spectrum) -> dict:
     # Friend comparison diagrams show the spectrum poles directly under the arc,
     # so the API returns the two endpoint labels separately instead of forcing
@@ -287,7 +299,12 @@ def leaderboards():
             Guess.query.join(Clue)
             .join(Spectrum)
             .join(User, Guess.user_id == User.id)
-            .filter(Clue.is_active.is_(True), Spectrum.is_active.is_(True), User.show_on_leaderboards.is_(True))
+            .filter(
+                Clue.is_active.is_(True),
+                Spectrum.is_active.is_(True),
+                User.show_on_leaderboards.is_(True),
+                User.is_guest.is_(False),
+            )
         )
         query = _date_filter(query, Guess, period)
         guesses = query.all()
@@ -317,6 +334,7 @@ def leaderboards():
                 Clue.is_active.is_(True),
                 Spectrum.is_active.is_(True),
                 User.show_on_leaderboards.is_(True),
+                User.is_guest.is_(False),
             )
         )
         query = _date_filter(query, Clue, period)
@@ -361,6 +379,10 @@ def leaderboards():
 @api_login_required
 def friends():
     user = current_user()
+    guest_response = reject_guest_social_user(user)
+    if guest_response is not None:
+        return guest_response
+
     friendships = Friendship.query.filter(
         or_(Friendship.user_low_id == user.id, Friendship.user_high_id == user.id)
     ).all()
@@ -400,6 +422,10 @@ def friends():
 @api_login_required
 def create_friend_request():
     user = current_user()
+    guest_response = reject_guest_social_user(user)
+    if guest_response is not None:
+        return guest_response
+
     data = request.get_json(silent=True) or {}
     username_display = str(data.get("username", "")).strip()
     username_normalized = normalize_username(username_display)
@@ -410,6 +436,8 @@ def create_friend_request():
     addressee = User.query.filter_by(username_normalized=username_normalized).first()
     if addressee is None:
         return jsonify({"error": "user_not_found", "message": "No user was found with that username."}), 404
+    if addressee.is_guest:
+        return jsonify({"error": "guest_not_allowed", "message": "Guest players cannot use friends."}), 400
     if addressee.id == user.id:
         return jsonify({"error": "self_request", "message": "You cannot send a friend request to yourself."}), 400
     if are_friends(user.id, addressee.id):
@@ -447,6 +475,10 @@ def pending_request_for_user(request_id: int, user_id: int) -> FriendRequest | N
 @api_login_required
 def accept_friend_request(request_id: int):
     user = current_user()
+    guest_response = reject_guest_social_user(user)
+    if guest_response is not None:
+        return guest_response
+
     friend_request = pending_request_for_user(request_id, user.id)
     if friend_request is None:
         return jsonify({"error": "request_not_found", "message": "That pending friend request was not found."}), 404
@@ -475,6 +507,10 @@ def accept_friend_request(request_id: int):
 @api_login_required
 def decline_friend_request(request_id: int):
     user = current_user()
+    guest_response = reject_guest_social_user(user)
+    if guest_response is not None:
+        return guest_response
+
     friend_request = pending_request_for_user(request_id, user.id)
     if friend_request is None:
         return jsonify({"error": "request_not_found", "message": "That pending friend request was not found."}), 404
@@ -490,6 +526,10 @@ def decline_friend_request(request_id: int):
 @api_login_required
 def cancel_friend_request(request_id: int):
     user = current_user()
+    guest_response = reject_guest_social_user(user)
+    if guest_response is not None:
+        return guest_response
+
     friend_request = pending_request_for_user(request_id, user.id)
     if friend_request is None:
         return jsonify({"error": "request_not_found", "message": "That pending friend request was not found."}), 404
@@ -505,9 +545,15 @@ def cancel_friend_request(request_id: int):
 @api_login_required
 def friend_comparison(friend_id: int):
     user = current_user()
+    guest_response = reject_guest_social_user(user)
+    if guest_response is not None:
+        return guest_response
+
     friend = User.query.get(friend_id)
     if friend is None:
         return jsonify({"error": "friend_not_found", "message": "That friend was not found."}), 404
+    if friend.is_guest:
+        return jsonify({"error": "guest_not_allowed", "message": "Guest players cannot use friends."}), 400
     if not are_friends(user.id, friend.id):
         return jsonify({"error": "not_friends", "message": "You can only compare answers with friends."}), 403
 
@@ -638,6 +684,7 @@ def history():
             {
                 "created_at": guess.created_at.isoformat(),
                 "spectrum": clue.spectrum.label,
+                **serialize_spectrum_poles(clue.spectrum),
                 "clue_text": clue.text,
                 "personal_position": round(guess.personal_position, 2),
                 "predicted_average_position": round(guess.predicted_average_position, 2),
@@ -665,6 +712,7 @@ def history():
             {
                 "created_at": clue.created_at.isoformat(),
                 "spectrum": clue.spectrum.label,
+                **serialize_spectrum_poles(clue.spectrum),
                 "clue_text": clue.text,
                 "target_position": round(clue.target_position, 2),
                 "current_global_average": round_or_none(result.global_average),
@@ -683,7 +731,9 @@ def history():
 def stats():
     return jsonify(
         {
-            "users": User.query.count(),
+            # Public stats count recoverable registered identities rather than
+            # temporary guest rows, which can accumulate as people try the game.
+            "users": User.query.filter(User.is_guest.is_(False)).count(),
             "spectrums": Spectrum.query.filter_by(is_active=True).count(),
             "clues": Clue.query.join(Spectrum).filter(Clue.is_active.is_(True), Spectrum.is_active.is_(True)).count(),
             "guesses": Guess.query.count(),

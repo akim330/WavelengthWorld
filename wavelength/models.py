@@ -17,6 +17,22 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username_display = db.Column(db.String(80), nullable=False)
     username_normalized = db.Column(db.String(80), nullable=False, unique=True, index=True)
+    # Password hashes stay nullable so existing passwordless accounts can be
+    # claimed on their first return and guest accounts can remain intentionally
+    # unrecoverable. The app should never store or compare raw passwords.
+    password_hash = db.Column(db.String(255), nullable=True)
+    # Recovery email is optional in this lightweight auth pass. The display
+    # value preserves the player's spelling, while email_normalized supports
+    # case-insensitive duplicate checks and future recovery lookup.
+    email = db.Column(db.String(255), nullable=True)
+    email_normalized = db.Column(db.String(255), nullable=True, unique=True, index=True)
+    # Guest rows are persisted only so their in-session guesses and clues can
+    # keep normal foreign keys. They are hidden from social and public identity
+    # features because the player cannot log back into them later.
+    is_guest = db.Column(db.Boolean, nullable=False, default=False)
+    # Tracking when a password was first attached lets the login flow distinguish
+    # legacy passwordless users from normal password-authenticated users.
+    password_set_at = db.Column(db.DateTime(timezone=True), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
     last_seen_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
     # Players may still submit guesses and clues while hidden from public

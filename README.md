@@ -4,7 +4,8 @@ A Flask + SQLite MVP for an online asynchronous Wavelength-style game.
 
 ## Features
 
-- Username-only login, case-insensitive accounts
+- Lightweight password login with first-return password setup for older accounts
+- Optional recovery email storage and private guest play
 - Independent guesser and cluer panels
 - Continuous SVG dial UI
 - Player-submitted clues feeding future guesser prompts
@@ -41,4 +42,4 @@ Edit `config.py` for scoring bands, leaderboard minimums, and database URL.
 
 ## Notes
 
-This is an MVP. Username-only login is intentionally lightweight and not secure for production. For deployment, add real auth, rate limits, admin moderation, and PostgreSQL.
+This is an MVP. Login is intentionally lightweight: recovery emails are stored for future/manual help, but automatic password reset emails are not implemented yet. For deployment, add rate limits, admin moderation, automated password recovery, and PostgreSQL.

@@ -75,6 +75,35 @@ h3 { font-size: 1rem; margin-bottom: 0.7rem; }
   padding: 2rem;
 }
 .login-form { display: grid; gap: 0.8rem; margin-top: 1.4rem; }
+.login-mode-note {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.45;
+}
+.login-help {
+  margin: -0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+.login-back-link {
+  justify-self: center;
+  color: var(--accent);
+  font-weight: 750;
+  text-decoration: none;
+}
+.login-back-link:hover { text-decoration: underline; }
+.optional-label {
+  color: var(--muted);
+  font-weight: 650;
+}
+.guest-form {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1.2rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--border);
+}
 .flash { padding: 0.8rem 1rem; border-radius: 14px; margin-top: 1rem; }
 .flash.error { background: #fff1f0; color: var(--danger); }
 
@@ -428,9 +457,32 @@ tr:last-child td { border-bottom: 0; }
   font-variant-numeric: tabular-nums;
 }
 .history-table-wrap table { min-width: 760px; }
+.history-panel .history-table-wrap table { min-width: 680px; }
 .history-arc-cell {
   width: 250px;
   min-width: 250px;
+}
+.history-diagram {
+  display: grid;
+  justify-items: start;
+  gap: 0.15rem;
+}
+.history-spectrum-endpoints {
+  display: flex;
+  justify-content: space-between;
+  width: 220px;
+  margin-top: -0.35rem;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1.15;
+}
+.history-spectrum-endpoints span {
+  width: 45%;
+  overflow-wrap: anywhere;
+}
+.history-spectrum-endpoints span:last-child {
+  text-align: right;
 }
 .history-arc {
   display: block;
