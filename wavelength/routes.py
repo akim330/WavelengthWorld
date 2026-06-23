@@ -66,3 +66,9 @@ def logout():
 @login_required
 def play():
     return render_template("play.html")
+
+
+@web_bp.get("/friends")
+@login_required
+def friends():
+    return render_template("friends.html")

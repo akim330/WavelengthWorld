@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Friends · Wavelength World{% endblock %}
+{% block body %}
+<header class="app-header">
+  <div>
+    <h1>Wavelength World</h1>
+    <p class="muted">Logged in as <strong>{{ session.username }}</strong></p>
+  </div>
+  <div class="header-actions">
+    <nav class="app-nav" aria-label="Primary">
+      <a href="{{ url_for('web.play') }}">Play</a>
+      <a class="active" href="{{ url_for('web.friends') }}">Friends</a>
+    </nav>
+    <form action="{{ url_for('web.logout') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="secondary">Logout</button>
+    </form>
+  </div>
+</header>
+
+<main class="friends-shell">
+  <aside class="friends-sidebar panel">
+    <section class="friend-request-section">
+      <h2>Add Friend</h2>
+      <form id="friendRequestForm" class="friend-request-form">
+        <label for="friendUsername">Username</label>
+        <div class="friend-request-row">
+          <input id="friendUsername" name="username" type="text" autocomplete="off" maxlength="80" required>
+          <button type="submit">Request</button>
+        </div>
+      </form>
+      <div id="friendRequestStatus" class="friend-status muted"></div>
+    </section>
+
+    <section class="friend-list-section">
+      <div class="friend-sidebar-heading">
+        <h2>Incoming</h2>
+      </div>
+      <div id="incomingRequests" class="request-list"></div>
+    </section>
+
+    <section class="friend-list-section">
+      <div class="friend-sidebar-heading">
+        <h2>Outgoing</h2>
+      </div>
+      <div id="outgoingRequests" class="request-list"></div>
+    </section>
+
+    <section class="friend-list-section">
+      <div class="friend-sidebar-heading">
+        <h2>Friends</h2>
+      </div>
+      <div id="friendsList" class="friends-list"></div>
+    </section>
+  </aside>
+
+  <section class="panel friends-main">
+    <div class="panel-header">
+      <div>
+        <h2 id="selectedFriendTitle">Select a friend</h2>
+        <p id="selectedFriendSubtitle" class="muted">Choose a friend from the sidebar to compare answers.</p>
+      </div>
+      <button id="refreshFriendsBtn" type="button" class="secondary">Refresh</button>
+    </div>
+
+    <div id="friendComparisonEmpty" class="empty">No friend selected.</div>
+    <div id="friendComparisonContent" class="hidden">
+      <div class="tabs">
+        <button class="tab active" data-friend-tab="guesses">Guesses</button>
+        <button class="tab" data-friend-tab="clues">Clues</button>
+      </div>
+      <div id="friendGuesses" class="history-table-wrap"></div>
+      <div id="friendClues" class="history-table-wrap hidden"></div>
+    </div>
+  </section>
+</main>
+
+<script src="{{ url_for('static', filename='js/history_graphics.js') }}"></script>
+<script src="{{ url_for('static', filename='js/friends.js') }}"></script>
+{% endblock %}

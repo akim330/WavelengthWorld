@@ -14,30 +14,12 @@
     // This lets the same visible dial stay in place for the global-average
     // prediction, which makes "same as my opinion" a one-click action.
     personalPosition: null,
+    // Mirrors the server-side privacy setting so the checkbox can roll back to
+    // the last saved value if a settings request fails.
+    showOnLeaderboards: true,
   };
 
   const $ = (id) => document.getElementById(id);
-
-  // The compact history arcs use their own SVG geometry so table rows stay
-  // small while still matching the live dial's 0-100 left-to-right scale.
-  const HISTORY_ARC = {
-    width: 220,
-    height: 124,
-    cx: 110,
-    cy: 104,
-    radius: 84,
-  };
-
-  // History scoring bands intentionally mirror the requested visual language:
-  // one centered blue 4-point band, two orange 3-point bands, and two yellow
-  // 2-point bands. The bands are clipped to the 0-100 dial range per row.
-  const HISTORY_BAND_SEGMENTS = [
-    [-12.5, -7.5, 'history-band-2'],
-    [-7.5, -2.5, 'history-band-3'],
-    [-2.5, 2.5, 'history-band-4'],
-    [2.5, 7.5, 'history-band-3'],
-    [7.5, 12.5, 'history-band-2'],
-  ];
 
   function setStatus(message) {
     $('globalStatus').textContent = message || '';
@@ -330,7 +312,7 @@
       <table>
         <thead>
           <tr>
-            <th>#</th><th>User</th><th class="numeric">Avg</th><th class="numeric">Scored</th><th class="numeric">Total</th>
+            <th>#</th><th>User</th><th class="numeric">Avg</th><th class="numeric"># Played</th>
           </tr>
         </thead>
         <tbody>
@@ -340,7 +322,6 @@
               <td>${escapeHtml(row.username)}</td>
               <td class="numeric">${row.average_score}</td>
               <td class="numeric">${row.scored_entries}</td>
-              <td class="numeric">${row.total_points}</td>
             </tr>`).join('')}
         </tbody>
       </table>`;
@@ -379,110 +360,103 @@
     renderLeaderboardStack(results);
   }
 
+  function setLeaderboardVisibilityStatus(message) {
+    $('leaderboardVisibilityStatus').textContent = message || '';
+  }
+
+  function renderSettings(settings) {
+    state.showOnLeaderboards = Boolean(settings.show_on_leaderboards);
+    $('leaderboardVisibilityToggle').checked = state.showOnLeaderboards;
+    setLeaderboardVisibilityStatus('');
+  }
+
+  async function loadSettings() {
+    try {
+      const settings = await apiFetch('/api/me/settings');
+      renderSettings(settings);
+    } catch (error) {
+      // Settings are not required for play, but a failed load means the checkbox
+      // might be wrong, so disable it until a page refresh can try again.
+      $('leaderboardVisibilityToggle').disabled = true;
+      setLeaderboardVisibilityStatus('Leaderboard visibility could not load.');
+    }
+  }
+
+  async function saveLeaderboardVisibility() {
+    const toggle = $('leaderboardVisibilityToggle');
+    const nextValue = toggle.checked;
+    toggle.disabled = true;
+    setLeaderboardVisibilityStatus('Saving…');
+
+    try {
+      const settings = await apiFetch('/api/me/settings', {
+        method: 'POST',
+        body: JSON.stringify({ show_on_leaderboards: nextValue }),
+      });
+      renderSettings(settings);
+      await loadLeaderboards();
+    } catch (error) {
+      // Keep the UI honest by restoring the checkbox to the last value confirmed
+      // by the server if the save fails.
+      toggle.checked = state.showOnLeaderboards;
+      setLeaderboardVisibilityStatus(error.message || 'Could not save leaderboard visibility.');
+    } finally {
+      toggle.disabled = false;
+    }
+  }
+
   function statusText(item) {
     if (item.status === 'pending') return `<span class="status-pending">Pending (${item.guess_count}/3)</span>`;
     return `<span class="status-scored">${item.score}/4</span>`;
   }
 
-  function normalizedDialValue(value) {
-    // API rows can legitimately have no current average yet. Returning null for
-    // non-numeric values lets the SVG renderer omit only the missing marker or
-    // band while still drawing the rest of the row's available information.
-    if (value === null || value === undefined || value === '') return null;
-    const number = Number(value);
-    if (!Number.isFinite(number)) return null;
-    return Math.max(0, Math.min(100, number));
-  }
-
-  function historyValueToAngle(value) {
-    return 180 + (value / 100) * 180;
-  }
-
-  function historyPointForValue(radius, value) {
-    const angleRad = historyValueToAngle(value) * Math.PI / 180;
-    return {
-      x: HISTORY_ARC.cx + radius * Math.cos(angleRad),
-      y: HISTORY_ARC.cy + radius * Math.sin(angleRad),
-    };
-  }
-
-  function historyArcPath(startValue, endValue) {
-    // Every mini-arc path is built from dial values rather than pixel offsets so
-    // clipped bands near 0 or 100 still stay attached to the correct part of the
-    // semicircle.
-    const start = historyPointForValue(HISTORY_ARC.radius, startValue);
-    const end = historyPointForValue(HISTORY_ARC.radius, endValue);
-    const largeArcFlag = Math.abs(historyValueToAngle(endValue) - historyValueToAngle(startValue)) <= 180 ? '0' : '1';
-    return `M ${start.x} ${start.y} A ${HISTORY_ARC.radius} ${HISTORY_ARC.radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
-  }
-
-  function renderHistoryBands(centerValue) {
-    // A row's scoring bands are centered on the thing being judged: the current
-    // global average for guess history and the true target for clue history.
-    // Each segment is clipped independently so edge targets keep their visible
-    // partial scoring bands instead of overflowing past the arc endpoints.
-    const center = normalizedDialValue(centerValue);
-    if (center === null) return '';
-    return HISTORY_BAND_SEGMENTS.map(([startOffset, endOffset, className]) => {
-      const start = normalizedDialValue(center + startOffset);
-      const end = normalizedDialValue(center + endOffset);
-      if (start === null || end === null || end <= start) return '';
-      return `<path class="${className}" d="${historyArcPath(start, end)}"></path>`;
-    }).join('');
-  }
-
-  function renderHistoryMarker(value, className) {
-    // Markers are radial pins, matching the main dial metaphor while avoiding
-    // visible numbers. Different classes supply the requested blue, red, and
-    // black meanings for personal opinion, predicted/actual average, and target.
-    const normalized = normalizedDialValue(value);
-    if (normalized === null) return '';
-    const outer = historyPointForValue(HISTORY_ARC.radius - 5, normalized);
-    return `<line class="history-marker ${className}" x1="${HISTORY_ARC.cx}" y1="${HISTORY_ARC.cy}" x2="${outer.x}" y2="${outer.y}"></line>`;
-  }
-
-  function renderHistoryArc({ bandCenter, markers, ariaLabel }) {
-    // This generator returns a complete inline SVG so every history row can draw
-    // exactly the combination it needs: guess rows use blue/red pins with bands
-    // around the average, while clue rows use black/red pins with bands around
-    // the target.
+  function renderHistoryLegend(items, bandLabel) {
+    // History rows use compact colored pins without text labels inside the SVG.
+    // This helper keeps the pin meanings next to each row and optionally names
+    // the scoring bands so players can tell which reference point the bands use.
     return `
-      <svg class="history-arc" viewBox="0 0 ${HISTORY_ARC.width} ${HISTORY_ARC.height}" role="img" aria-label="${escapeHtml(ariaLabel)}">
-        <path class="history-arc-bg" d="${historyArcPath(0, 100)}"></path>
-        ${renderHistoryBands(bandCenter)}
-        ${markers.map(marker => renderHistoryMarker(marker.value, marker.className)).join('')}
-      </svg>`;
+      <div class="history-legend" aria-hidden="true">
+        ${items.map(item => `
+          <span><span class="history-legend-swatch ${item.className}"></span>${escapeHtml(item.label)}</span>
+        `).join('')}
+        ${bandLabel ? `<span><span class="history-legend-band"></span>${escapeHtml(bandLabel)}</span>` : ''}
+      </div>`;
   }
 
   function renderGuessHistoryGraphic(row) {
-    return renderHistoryArc({
-      bandCenter: row.current_global_average,
-      ariaLabel: 'Blue pin shows your personal opinion. Red pin shows your guess for the average opinion.',
-      markers: [
-        { value: row.personal_position, className: 'history-marker-personal' },
-        { value: row.predicted_average_position, className: 'history-marker-average' },
-      ],
-    });
+    return `
+      ${window.WavelengthHistoryGraphics.renderHistoryArc({
+        bandCenter: row.current_global_average,
+        ariaLabel: 'Blue pin shows your personal opinion. Red pin shows your scored guess for the average opinion. Bands are centered on the global average.',
+        markers: [
+          { value: row.personal_position, className: 'history-marker-personal' },
+          { value: row.predicted_average_position, className: 'history-marker-average' },
+        ],
+      })}
+      ${renderHistoryLegend([
+        { className: 'history-legend-you', label: 'Personal opinion' },
+        { className: 'history-legend-average', label: 'Scored average guess' },
+      ])}`;
   }
 
   function renderClueHistoryGraphic(row) {
     // Clue history compares two different meanings on the same dial: the target
     // the cluer was asked to hit and the current global average produced by the
-    // guessers. The legend makes that distinction visible without forcing players
-    // to infer it from marker color alone.
+    // guessers. Its scoring bands are centered on the current global average so
+    // the visual scoring frame matches guess history and friend comparisons.
     return `
-      ${renderHistoryArc({
-        bandCenter: row.target_position,
-        ariaLabel: 'Black pin shows the true target. Red pin shows the current global average opinion.',
+      ${window.WavelengthHistoryGraphics.renderHistoryArc({
+        bandCenter: row.current_global_average,
+        ariaLabel: 'Black pin shows the true target. Red pin shows the current global average opinion. Bands are centered on the global average.',
         markers: [
           { value: row.target_position, className: 'history-marker-target' },
           { value: row.current_global_average, className: 'history-marker-average' },
         ],
       })}
-      <div class="history-legend" aria-hidden="true">
-        <span><span class="history-legend-swatch history-legend-target"></span>Your target</span>
-        <span><span class="history-legend-swatch history-legend-average"></span>Global average</span>
-      </div>`;
+      ${renderHistoryLegend([
+        { className: 'history-legend-target', label: 'Your target' },
+        { className: 'history-legend-average', label: 'Global average' },
+      ], 'Global average bands')}`;
   }
 
   function renderClueHistoryResult(row) {
@@ -609,12 +583,13 @@
     $('submitGuessBtn').addEventListener('click', submitGuess);
     $('submitClueBtn').addEventListener('click', submitClue);
     $('refreshHistoryBtn').addEventListener('click', loadHistory);
+    $('leaderboardVisibilityToggle').addEventListener('change', saveLeaderboardVisibility);
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
     initializeDials();
     setupTabs();
     bindEvents();
-    await Promise.all([loadPrompts(), loadLeaderboards(), loadHistory(), loadStats()]);
+    await Promise.all([loadPrompts(), loadSettings(), loadLeaderboards(), loadHistory(), loadStats()]);
   });
 })();

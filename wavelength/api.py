@@ -3,18 +3,24 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from flask import Blueprint, current_app, jsonify, request
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import aliased
 
 from . import db
-from .models import Clue, CluerTask, Guess, Spectrum, User
-from .moderation import normalize_clue_text, validate_clue_text
+from .models import Clue, CluerTask, FriendRequest, Friendship, Guess, Spectrum, User
+from .moderation import normalize_clue_text, normalize_username, validate_clue_text
 from .prompts import create_cluer_prompt, get_guesser_prompt
 from .scoring import clamp_position, round_or_none, score_clue, score_guess
 from .session_helpers import api_login_required, current_user, validate_csrf
 from .time_utils import today_bounds_app_tz
 
 api_bp = Blueprint("api", __name__)
+
+PENDING_FRIEND_REQUEST = "pending"
+ACCEPTED_FRIEND_REQUEST = "accepted"
+DECLINED_FRIEND_REQUEST = "declined"
+CANCELED_FRIEND_REQUEST = "canceled"
 
 
 @api_bp.before_request
@@ -32,6 +38,57 @@ def score_payload(result):
         "distance": round_or_none(result.distance),
         "score": result.score,
     }
+
+
+def ordered_friend_pair(first_user_id: int, second_user_id: int) -> tuple[int, int]:
+    # Friendships are stored once for both directions. Sorting the ids before
+    # querying or inserting keeps every caller using the same canonical pair.
+    return (first_user_id, second_user_id) if first_user_id < second_user_id else (second_user_id, first_user_id)
+
+
+def friendship_between(first_user_id: int, second_user_id: int) -> Friendship | None:
+    low_id, high_id = ordered_friend_pair(first_user_id, second_user_id)
+    return Friendship.query.filter_by(user_low_id=low_id, user_high_id=high_id).first()
+
+
+def are_friends(first_user_id: int, second_user_id: int) -> bool:
+    return friendship_between(first_user_id, second_user_id) is not None
+
+
+def serialize_friend(user: User) -> dict:
+    return {"id": user.id, "username": user.username_display}
+
+
+def serialize_friend_request(friend_request: FriendRequest, other_user: User) -> dict:
+    return {
+        "id": friend_request.id,
+        "username": other_user.username_display,
+        "created_at": friend_request.created_at.isoformat(),
+    }
+
+
+def serialize_friend_request_list(friend_requests: list[FriendRequest], direction: str) -> list[dict]:
+    rows = []
+    for friend_request in friend_requests:
+        other_user = friend_request.requester if direction == "incoming" else friend_request.addressee
+        if other_user is None:
+            current_app.logger.error("Friend request %s points at a missing %s user.", friend_request.id, direction)
+            continue
+        rows.append(serialize_friend_request(friend_request, other_user))
+    return rows
+
+
+def pending_request_between(first_user_id: int, second_user_id: int) -> FriendRequest | None:
+    # Pending requests should be unique regardless of who initiated the request,
+    # because a reverse pending request would leave both players waiting on each
+    # other instead of creating one clear accept/decline action.
+    return FriendRequest.query.filter(
+        FriendRequest.status == PENDING_FRIEND_REQUEST,
+        or_(
+            (FriendRequest.requester_user_id == first_user_id) & (FriendRequest.addressee_user_id == second_user_id),
+            (FriendRequest.requester_user_id == second_user_id) & (FriendRequest.addressee_user_id == first_user_id),
+        ),
+    ).first()
 
 
 @api_bp.get("/prompts")
@@ -54,6 +111,37 @@ def prompts():
         {
             "guesser": get_guesser_prompt(user),
             "cluer": create_cluer_prompt(user),
+        }
+    )
+
+
+@api_bp.get("/me/settings")
+@api_login_required
+def settings():
+    user = current_user()
+    return jsonify(
+        {
+            "show_on_leaderboards": user.show_on_leaderboards,
+        }
+    )
+
+
+@api_bp.post("/me/settings")
+@api_login_required
+def update_settings():
+    user = current_user()
+    data = request.get_json(silent=True) or {}
+
+    if "show_on_leaderboards" not in data or not isinstance(data["show_on_leaderboards"], bool):
+        return jsonify({"error": "invalid_settings", "message": "Leaderboard visibility must be true or false."}), 400
+
+    # The leaderboard opt-out is intentionally narrow: it only hides public
+    # leaderboard rows, while personal history and scoring continue to work.
+    user.show_on_leaderboards = data["show_on_leaderboards"]
+    db.session.commit()
+    return jsonify(
+        {
+            "show_on_leaderboards": user.show_on_leaderboards,
         }
     )
 
@@ -189,7 +277,7 @@ def leaderboards():
             Guess.query.join(Clue)
             .join(Spectrum)
             .join(User, Guess.user_id == User.id)
-            .filter(Clue.is_active.is_(True), Spectrum.is_active.is_(True))
+            .filter(Clue.is_active.is_(True), Spectrum.is_active.is_(True), User.show_on_leaderboards.is_(True))
         )
         query = _date_filter(query, Guess, period)
         guesses = query.all()
@@ -214,7 +302,12 @@ def leaderboards():
         query = (
             Clue.query.join(User, Clue.author_user_id == User.id)
             .join(Spectrum)
-            .filter(Clue.is_seed.is_(False), Clue.is_active.is_(True), Spectrum.is_active.is_(True))
+            .filter(
+                Clue.is_seed.is_(False),
+                Clue.is_active.is_(True),
+                Spectrum.is_active.is_(True),
+                User.show_on_leaderboards.is_(True),
+            )
         )
         query = _date_filter(query, Clue, period)
         clues = query.all()
@@ -252,6 +345,230 @@ def leaderboards():
             "rows": rows[:25],
         }
     )
+
+
+@api_bp.get("/friends")
+@api_login_required
+def friends():
+    user = current_user()
+    friendships = Friendship.query.filter(
+        or_(Friendship.user_low_id == user.id, Friendship.user_high_id == user.id)
+    ).all()
+
+    friend_rows = []
+    for friendship in friendships:
+        friend_user = friendship.user_high if friendship.user_low_id == user.id else friendship.user_low
+        if friend_user is None:
+            current_app.logger.error("Friendship %s points at a missing user.", friendship.id)
+            continue
+        friend_rows.append(serialize_friend(friend_user))
+    friend_rows.sort(key=lambda row: row["username"].lower())
+
+    incoming_requests = (
+        FriendRequest.query.join(User, FriendRequest.requester_user_id == User.id)
+        .filter(FriendRequest.addressee_user_id == user.id, FriendRequest.status == PENDING_FRIEND_REQUEST)
+        .order_by(FriendRequest.created_at.desc())
+        .all()
+    )
+    outgoing_requests = (
+        FriendRequest.query.join(User, FriendRequest.addressee_user_id == User.id)
+        .filter(FriendRequest.requester_user_id == user.id, FriendRequest.status == PENDING_FRIEND_REQUEST)
+        .order_by(FriendRequest.created_at.desc())
+        .all()
+    )
+
+    return jsonify(
+        {
+            "friends": friend_rows,
+            "incoming_requests": serialize_friend_request_list(incoming_requests, "incoming"),
+            "outgoing_requests": serialize_friend_request_list(outgoing_requests, "outgoing"),
+        }
+    )
+
+
+@api_bp.post("/friend-requests")
+@api_login_required
+def create_friend_request():
+    user = current_user()
+    data = request.get_json(silent=True) or {}
+    username_display = str(data.get("username", "")).strip()
+    username_normalized = normalize_username(username_display)
+
+    if not username_normalized:
+        return jsonify({"error": "missing_username", "message": "Enter a username to request."}), 400
+
+    addressee = User.query.filter_by(username_normalized=username_normalized).first()
+    if addressee is None:
+        return jsonify({"error": "user_not_found", "message": "No user was found with that username."}), 404
+    if addressee.id == user.id:
+        return jsonify({"error": "self_request", "message": "You cannot send a friend request to yourself."}), 400
+    if are_friends(user.id, addressee.id):
+        return jsonify({"error": "already_friends", "message": "You are already friends with that user."}), 409
+    if pending_request_between(user.id, addressee.id) is not None:
+        return jsonify({"error": "request_pending", "message": "A friend request is already pending between you."}), 409
+
+    friend_request = FriendRequest(
+        requester_user_id=user.id,
+        addressee_user_id=addressee.id,
+        status=PENDING_FRIEND_REQUEST,
+    )
+    db.session.add(friend_request)
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "request_pending", "message": "A friend request is already pending between you."}), 409
+
+    return jsonify({"status": "ok", "request": serialize_friend_request(friend_request, addressee)})
+
+
+def pending_request_for_user(request_id: int, user_id: int) -> FriendRequest | None:
+    # Request actions must only operate on pending requests involving the current
+    # user, otherwise stale or guessed ids could alter completed request history.
+    return FriendRequest.query.filter(
+        FriendRequest.id == request_id,
+        FriendRequest.status == PENDING_FRIEND_REQUEST,
+        or_(FriendRequest.requester_user_id == user_id, FriendRequest.addressee_user_id == user_id),
+    ).first()
+
+
+@api_bp.post("/friend-requests/<int:request_id>/accept")
+@api_login_required
+def accept_friend_request(request_id: int):
+    user = current_user()
+    friend_request = pending_request_for_user(request_id, user.id)
+    if friend_request is None:
+        return jsonify({"error": "request_not_found", "message": "That pending friend request was not found."}), 404
+    if friend_request.addressee_user_id != user.id:
+        return jsonify({"error": "not_allowed", "message": "Only the recipient can accept this request."}), 403
+
+    if friend_request.requester is None or friend_request.addressee is None:
+        current_app.logger.error("Friend request %s points at a missing user.", friend_request.id)
+        return jsonify({"error": "request_not_found", "message": "That pending friend request was not found."}), 404
+
+    low_id, high_id = ordered_friend_pair(friend_request.requester_user_id, friend_request.addressee_user_id)
+    friend_request.status = ACCEPTED_FRIEND_REQUEST
+    if friendship_between(friend_request.requester_user_id, friend_request.addressee_user_id) is None:
+        db.session.add(Friendship(user_low_id=low_id, user_high_id=high_id))
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "already_friends", "message": "You are already friends with that user."}), 409
+
+    return jsonify({"status": "ok", "friend": serialize_friend(friend_request.requester)})
+
+
+@api_bp.post("/friend-requests/<int:request_id>/decline")
+@api_login_required
+def decline_friend_request(request_id: int):
+    user = current_user()
+    friend_request = pending_request_for_user(request_id, user.id)
+    if friend_request is None:
+        return jsonify({"error": "request_not_found", "message": "That pending friend request was not found."}), 404
+    if friend_request.addressee_user_id != user.id:
+        return jsonify({"error": "not_allowed", "message": "Only the recipient can decline this request."}), 403
+
+    friend_request.status = DECLINED_FRIEND_REQUEST
+    db.session.commit()
+    return jsonify({"status": "ok"})
+
+
+@api_bp.post("/friend-requests/<int:request_id>/cancel")
+@api_login_required
+def cancel_friend_request(request_id: int):
+    user = current_user()
+    friend_request = pending_request_for_user(request_id, user.id)
+    if friend_request is None:
+        return jsonify({"error": "request_not_found", "message": "That pending friend request was not found."}), 404
+    if friend_request.requester_user_id != user.id:
+        return jsonify({"error": "not_allowed", "message": "Only the sender can cancel this request."}), 403
+
+    friend_request.status = CANCELED_FRIEND_REQUEST
+    db.session.commit()
+    return jsonify({"status": "ok"})
+
+
+@api_bp.get("/friends/<int:friend_id>/comparison")
+@api_login_required
+def friend_comparison(friend_id: int):
+    user = current_user()
+    friend = User.query.get(friend_id)
+    if friend is None:
+        return jsonify({"error": "friend_not_found", "message": "That friend was not found."}), 404
+    if not are_friends(user.id, friend.id):
+        return jsonify({"error": "not_friends", "message": "You can only compare answers with friends."}), 403
+
+    FriendGuess = aliased(Guess)
+    shared_guesses = (
+        Guess.query.join(Clue, Guess.clue_id == Clue.id)
+        .join(Spectrum, Clue.spectrum_id == Spectrum.id)
+        .join(FriendGuess, (FriendGuess.clue_id == Guess.clue_id) & (FriendGuess.user_id == friend.id))
+        .filter(
+            Guess.user_id == user.id,
+            Clue.is_active.is_(True),
+            Spectrum.is_active.is_(True),
+        )
+        .order_by(Guess.created_at.desc())
+        .limit(200)
+        .all()
+    )
+
+    guess_rows = []
+    for guess in shared_guesses:
+        friend_guess = next((candidate for candidate in guess.clue.guesses if candidate.user_id == friend.id), None)
+        if friend_guess is None:
+            current_app.logger.error("Shared guess query returned clue %s without friend guess for user %s.", guess.clue_id, friend.id)
+            continue
+        result = score_guess(guess)
+        clue = guess.clue
+        guess_rows.append(
+            {
+                "created_at": guess.created_at.isoformat(),
+                "spectrum": clue.spectrum.label,
+                "clue_text": clue.text,
+                "your_predicted_average_position": round(guess.predicted_average_position, 2),
+                "friend_predicted_average_position": round(friend_guess.predicted_average_position, 2),
+                "current_global_average": round_or_none(result.global_average),
+                "guess_count": result.guess_count,
+                "status": result.status,
+            }
+        )
+
+    friend_clues = (
+        Guess.query.join(Clue, Guess.clue_id == Clue.id)
+        .join(Spectrum, Clue.spectrum_id == Spectrum.id)
+        .filter(
+            Guess.user_id == user.id,
+            Clue.author_user_id == friend.id,
+            Clue.is_active.is_(True),
+            Spectrum.is_active.is_(True),
+        )
+        .order_by(Clue.created_at.desc())
+        .limit(200)
+        .all()
+    )
+
+    clue_rows = []
+    for guess in friend_clues:
+        clue = guess.clue
+        result = score_clue(clue)
+        clue_rows.append(
+            {
+                "created_at": clue.created_at.isoformat(),
+                "spectrum": clue.spectrum.label,
+                "clue_text": clue.text,
+                "friend_target_position": round(clue.target_position, 2),
+                "your_predicted_average_position": round(guess.predicted_average_position, 2),
+                "current_global_average": round_or_none(result.global_average),
+                "guess_count": result.guess_count,
+                "status": result.status,
+            }
+        )
+
+    return jsonify({"friend": serialize_friend(friend), "guesses": guess_rows, "clues": clue_rows})
 
 
 @api_bp.get("/me/history")

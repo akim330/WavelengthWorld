@@ -6,10 +6,16 @@
     <h1>Wavelength World</h1>
     <p class="muted">Logged in as <strong>{{ session.username }}</strong></p>
   </div>
-  <form action="{{ url_for('web.logout') }}" method="post">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit" class="secondary">Logout</button>
-  </form>
+  <div class="header-actions">
+    <nav class="app-nav" aria-label="Primary">
+      <a class="active" href="{{ url_for('web.play') }}">Play</a>
+      <a href="{{ url_for('web.friends') }}">Friends</a>
+    </nav>
+    <form action="{{ url_for('web.logout') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="secondary">Logout</button>
+    </form>
+  </div>
 </header>
 
 <main class="app-shell">
@@ -157,11 +163,17 @@
         <p class="muted">Average points per scored round.</p>
       </div>
     </div>
+    <label class="leaderboard-visibility-toggle" for="leaderboardVisibilityToggle">
+      <input id="leaderboardVisibilityToggle" type="checkbox" checked>
+      <span>Show me on leaderboards</span>
+    </label>
+    <p id="leaderboardVisibilityStatus" class="leaderboard-visibility-status muted"></p>
     <div id="leaderboardStack" class="leaderboard-stack"></div>
     <div id="siteStats" class="site-stats muted"></div>
   </aside>
 </main>
 
 <script src="{{ url_for('static', filename='js/dial.js') }}"></script>
+<script src="{{ url_for('static', filename='js/history_graphics.js') }}"></script>
 <script src="{{ url_for('static', filename='js/play.js') }}"></script>
 {% endblock %}

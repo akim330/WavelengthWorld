@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import UniqueConstraint, Index
+from sqlalchemy import UniqueConstraint, Index, CheckConstraint
 
 from . import db
 
@@ -19,9 +19,65 @@ class User(db.Model):
     username_normalized = db.Column(db.String(80), nullable=False, unique=True, index=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
     last_seen_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+    # Players may still submit guesses and clues while hidden from public
+    # leaderboards. Keeping the preference on the user lets both guesser and
+    # cluer leaderboard queries apply the same privacy choice consistently.
+    show_on_leaderboards = db.Column(db.Boolean, nullable=False, default=True)
 
     clues = db.relationship("Clue", back_populates="author", lazy=True)
     guesses = db.relationship("Guess", back_populates="user", lazy=True)
+    sent_friend_requests = db.relationship(
+        "FriendRequest",
+        foreign_keys="FriendRequest.requester_user_id",
+        back_populates="requester",
+        lazy=True,
+    )
+    received_friend_requests = db.relationship(
+        "FriendRequest",
+        foreign_keys="FriendRequest.addressee_user_id",
+        back_populates="addressee",
+        lazy=True,
+    )
+
+
+class FriendRequest(db.Model):
+    __tablename__ = "friend_requests"
+    __table_args__ = (
+        Index("ix_friend_requests_addressee_status", "addressee_user_id", "status"),
+        Index("ix_friend_requests_requester_status", "requester_user_id", "status"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    requester_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    addressee_user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False, default="pending", index=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow, onupdate=utcnow)
+
+    # Requests preserve direction so the UI can distinguish sent requests from
+    # requests that need the current player's response.
+    requester = db.relationship("User", foreign_keys=[requester_user_id], back_populates="sent_friend_requests")
+    addressee = db.relationship("User", foreign_keys=[addressee_user_id], back_populates="received_friend_requests")
+
+
+class Friendship(db.Model):
+    __tablename__ = "friendships"
+    __table_args__ = (
+        UniqueConstraint("user_low_id", "user_high_id", name="uq_friendship_pair"),
+        CheckConstraint("user_low_id < user_high_id", name="ck_friendship_ordered_pair"),
+        Index("ix_friendships_low", "user_low_id"),
+        Index("ix_friendships_high", "user_high_id"),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_low_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_high_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
+
+    # Storing the smaller user id first makes one row represent both directions
+    # of the friendship without needing duplicate reverse rows.
+    user_low = db.relationship("User", foreign_keys=[user_low_id])
+    user_high = db.relationship("User", foreign_keys=[user_high_id])
 
 
 class Spectrum(db.Model):
