@@ -13,7 +13,7 @@ from .moderation import normalize_clue_text, normalize_username, validate_clue_t
 from .prompts import create_cluer_prompt, get_guesser_prompt
 from .scoring import clamp_position, round_or_none, score_clue, score_guess
 from .session_helpers import api_login_required, current_user, validate_csrf
-from .time_utils import today_bounds_app_tz
+from .time_utils import today_bounds_app_tz, week_bounds_app_tz
 
 api_bp = Blueprint("api", __name__)
 
@@ -268,24 +268,31 @@ def _date_filter(query, model, period: str):
     if period == "daily":
         start, end = today_bounds_app_tz()
         query = query.filter(model.created_at >= start, model.created_at <= end)
+    elif period == "weekly":
+        start, end = week_bounds_app_tz()
+        query = query.filter(model.created_at >= start, model.created_at <= end)
     return query
 
 
 def _leaderboard_min(period: str) -> int:
     if period == "daily":
         return int(current_app.config["DAILY_LEADERBOARD_MIN_ENTRIES"])
-    return int(current_app.config["LIFETIME_LEADERBOARD_MIN_ENTRIES"])
+    if period == "weekly":
+        return int(current_app.config["WEEKLY_LEADERBOARD_MIN_ENTRIES"])
+    return int(current_app.config["ALL_TIME_LEADERBOARD_MIN_ENTRIES"])
 
 
 @api_bp.get("/leaderboards")
 @api_login_required
 def leaderboards():
     role = request.args.get("role", "guesser")
-    period = request.args.get("period", "daily")
+    period = request.args.get("period", "all_time")
 
     if role not in {"guesser", "cluer"}:
         return jsonify({"error": "invalid_role"}), 400
-    if period not in {"daily", "lifetime"}:
+    if period == "lifetime":
+        period = "all_time"
+    if period not in {"daily", "weekly", "all_time"}:
         return jsonify({"error": "invalid_period"}), 400
 
     min_entries = _leaderboard_min(period)

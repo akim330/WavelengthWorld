@@ -223,6 +223,40 @@ SEED_CLUES: list[tuple[str, str, str, int]] = []
 ACTIVE_SPECTRUM_PAIRS = {(left, right) for left, right, _, _ in SPECTRUMS}
 
 
+def sync_seed_spectrum_catalog() -> dict[tuple[str, str], Spectrum]:
+    """Keep seed spectrums aligned with the in-code catalog.
+
+    Existing rows are reused by (left_label, right_label), new catalog entries
+    are inserted, and previously removed rows are reactivated if they return.
+    """
+    existing_by_pair: dict[tuple[str, str], Spectrum] = {}
+    for spectrum in Spectrum.query.order_by(Spectrum.id.asc()).all():
+        pair = (spectrum.left_label, spectrum.right_label)
+        if pair not in existing_by_pair:
+            existing_by_pair[pair] = spectrum
+
+    for left, right, category, difficulty in SPECTRUMS:
+        pair = (left, right)
+        spectrum = existing_by_pair.get(pair)
+        if spectrum is None:
+            spectrum = Spectrum(
+                left_label=left,
+                right_label=right,
+                category=category,
+                difficulty=difficulty,
+                is_active=True,
+            )
+            db.session.add(spectrum)
+            existing_by_pair[pair] = spectrum
+            continue
+
+        spectrum.category = category
+        spectrum.difficulty = difficulty
+        spectrum.is_active = True
+
+    return existing_by_pair
+
+
 def suppress_removed_seed_spectrums() -> None:
     """Deactivate seed-catalog spectrums that were removed from SPECTRUMS.
 
@@ -252,39 +286,26 @@ def suppress_removed_seed_spectrums() -> None:
 
 
 def seed_if_empty() -> None:
-    if Spectrum.query.first() is not None:
-        suppress_removed_seed_spectrums()
-        db.session.commit()
-        return
+    had_any_spectrum = Spectrum.query.first() is not None
+    spectra_by_pair = sync_seed_spectrum_catalog()
+    suppress_removed_seed_spectrums()
 
-    spectra_by_pair = {}
-    for left, right, category, difficulty in SPECTRUMS:
-        spectrum = Spectrum(
-            left_label=left,
-            right_label=right,
-            category=category,
-            difficulty=difficulty,
-            is_active=True,
-        )
-        db.session.add(spectrum)
-        spectra_by_pair[(left, right)] = spectrum
-
-    db.session.flush()
-
-    for left, right, text, target in SEED_CLUES:
-        spectrum = spectra_by_pair.get((left, right))
-        if spectrum is None:
-            continue
-        db.session.add(
-            Clue(
-                spectrum_id=spectrum.id,
-                author_user_id=None,
-                text=text,
-                normalized_text=normalize_clue_text(text),
-                target_position=float(target),
-                is_seed=True,
-                is_active=True,
+    if not had_any_spectrum:
+        db.session.flush()
+        for left, right, text, target in SEED_CLUES:
+            spectrum = spectra_by_pair.get((left, right))
+            if spectrum is None:
+                continue
+            db.session.add(
+                Clue(
+                    spectrum_id=spectrum.id,
+                    author_user_id=None,
+                    text=text,
+                    normalized_text=normalize_clue_text(text),
+                    target_position=float(target),
+                    is_seed=True,
+                    is_active=True,
+                )
             )
-        )
 
     db.session.commit()

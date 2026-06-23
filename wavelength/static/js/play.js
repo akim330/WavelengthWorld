@@ -32,6 +32,10 @@
       guesses: 0,
       clues: 0,
     },
+    leaderboardPeriods: {
+      guesser: 'all_time',
+      cluer: 'all_time',
+    },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -342,37 +346,45 @@
       </table>`;
   }
 
-  function leaderboardTitle(role, period) {
-    const roleLabel = role === 'guesser' ? 'Guesser' : 'Cluer';
-    const periodLabel = period === 'daily' ? 'Daily' : 'Lifetime';
-    return `${roleLabel} · ${periodLabel}`;
+  function renderLeaderboardSection(role, data) {
+    const targetId = role === 'guesser' ? 'guesserLeaderboard' : 'cluerLeaderboard';
+    $(targetId).innerHTML = renderLeaderboard(data);
   }
 
-  function renderLeaderboardStack(results) {
-    $('leaderboardStack').innerHTML = results.map(({ role, period, data }) => `
-      <section class="leaderboard-block">
-        <h3>${leaderboardTitle(role, period)}</h3>
-        ${renderLeaderboard(data)}
-      </section>
-    `).join('');
+  async function loadLeaderboard(role) {
+    const period = state.leaderboardPeriods[role];
+    const data = await apiFetch(`/api/leaderboards?role=${encodeURIComponent(role)}&period=${encodeURIComponent(period)}`);
+    renderLeaderboardSection(role, data);
   }
 
   async function loadLeaderboards() {
-    const modes = [
-      { role: 'guesser', period: 'daily' },
-      { role: 'guesser', period: 'lifetime' },
-      { role: 'cluer', period: 'daily' },
-      { role: 'cluer', period: 'lifetime' },
-    ];
+    await Promise.all([loadLeaderboard('guesser'), loadLeaderboard('cluer')]);
+  }
 
-    // The sidebar now shows every leaderboard mode at once, but the backend
-    // already exposes the exact role/period combinations we need. Fetching them
-    // together keeps the UI fresh without introducing a new aggregate endpoint.
-    const results = await Promise.all(modes.map(async (mode) => {
-      const data = await apiFetch(`/api/leaderboards?role=${encodeURIComponent(mode.role)}&period=${encodeURIComponent(mode.period)}`);
-      return { ...mode, data };
-    }));
-    renderLeaderboardStack(results);
+  function setLeaderboardPeriod(role, period) {
+    if (!['guesser', 'cluer'].includes(role)) return;
+    if (!['daily', 'weekly', 'all_time'].includes(period)) return;
+    state.leaderboardPeriods[role] = period;
+    document.querySelectorAll(`.leaderboard-period-pill[data-leaderboard-role="${role}"]`).forEach((pill) => {
+      const isActive = pill.dataset.leaderboardPeriod === period;
+      pill.classList.toggle('active', isActive);
+      pill.setAttribute('aria-selected', String(isActive));
+    });
+  }
+
+  function setupLeaderboardPeriodPills() {
+    setLeaderboardPeriod('guesser', state.leaderboardPeriods.guesser);
+    setLeaderboardPeriod('cluer', state.leaderboardPeriods.cluer);
+    document.querySelectorAll('.leaderboard-period-pill').forEach((pill) => {
+      pill.addEventListener('click', async () => {
+        const role = pill.dataset.leaderboardRole;
+        const period = pill.dataset.leaderboardPeriod;
+        if (!role || !period) return;
+        if (state.leaderboardPeriods[role] === period) return;
+        setLeaderboardPeriod(role, period);
+        await loadLeaderboard(role);
+      });
+    });
   }
 
   function setLeaderboardVisibilityStatus(message) {
@@ -677,6 +689,7 @@
   document.addEventListener('DOMContentLoaded', async () => {
     initializeDials();
     setupTabs();
+    setupLeaderboardPeriodPills();
     bindEvents();
     await Promise.all([loadPrompts(), loadSettings(), loadLeaderboards(), loadHistory(), loadStats()]);
   });

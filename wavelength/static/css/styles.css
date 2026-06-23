@@ -377,7 +377,26 @@ h3 { font-size: 1rem; margin-bottom: 0.7rem; }
   overscroll-behavior: contain;
   min-width: 0;
 }
-.leaderboard-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 1rem; }
+.leaderboard-period-pills {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.8rem;
+}
+.leaderboard-period-pill {
+  background: white;
+  color: var(--ink);
+  border: 1px solid var(--border);
+  box-shadow: none;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+.leaderboard-period-pill.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
 .leaderboard-visibility-toggle {
   display: flex;
   align-items: center;
@@ -394,6 +413,10 @@ h3 { font-size: 1rem; margin-bottom: 0.7rem; }
   min-height: 1.1rem;
   margin-bottom: 0.8rem;
   font-size: 0.82rem;
+}
+.leaderboard-sections {
+  display: grid;
+  gap: 1rem;
 }
 .leaderboard-stack { display: grid; gap: 1rem; min-width: 0; }
 .leaderboard-block { min-width: 0; }

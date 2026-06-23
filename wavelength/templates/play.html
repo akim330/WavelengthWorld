@@ -170,7 +170,26 @@
       <span>Show me on leaderboards</span>
     </label>
     <p id="leaderboardVisibilityStatus" class="leaderboard-visibility-status muted"></p>
-    <div id="leaderboardStack" class="leaderboard-stack"></div>
+    <div class="leaderboard-sections">
+      <section class="leaderboard-block">
+        <h3>Guesser</h3>
+        <div class="leaderboard-period-pills" role="tablist" aria-label="Guesser leaderboard period">
+          <button type="button" class="leaderboard-period-pill" data-leaderboard-role="guesser" data-leaderboard-period="daily" role="tab" aria-selected="false">Daily</button>
+          <button type="button" class="leaderboard-period-pill" data-leaderboard-role="guesser" data-leaderboard-period="weekly" role="tab" aria-selected="false">Weekly</button>
+          <button type="button" class="leaderboard-period-pill active" data-leaderboard-role="guesser" data-leaderboard-period="all_time" role="tab" aria-selected="true">All Time</button>
+        </div>
+        <div id="guesserLeaderboard"></div>
+      </section>
+      <section class="leaderboard-block">
+        <h3>Cluer</h3>
+        <div class="leaderboard-period-pills" role="tablist" aria-label="Cluer leaderboard period">
+          <button type="button" class="leaderboard-period-pill" data-leaderboard-role="cluer" data-leaderboard-period="daily" role="tab" aria-selected="false">Daily</button>
+          <button type="button" class="leaderboard-period-pill" data-leaderboard-role="cluer" data-leaderboard-period="weekly" role="tab" aria-selected="false">Weekly</button>
+          <button type="button" class="leaderboard-period-pill active" data-leaderboard-role="cluer" data-leaderboard-period="all_time" role="tab" aria-selected="true">All Time</button>
+        </div>
+        <div id="cluerLeaderboard"></div>
+      </section>
+    </div>
     <div id="siteStats" class="site-stats muted"></div>
   </aside>
 </main>

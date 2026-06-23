@@ -70,7 +70,10 @@ class Config:
 
     MIN_GUESSES_FOR_SCORE = 3
     DAILY_LEADERBOARD_MIN_ENTRIES = 1
-    LIFETIME_LEADERBOARD_MIN_ENTRIES = 1
+    WEEKLY_LEADERBOARD_MIN_ENTRIES = 1
+    ALL_TIME_LEADERBOARD_MIN_ENTRIES = 1
+    # Backward-compatibility alias for older code paths still reading "lifetime".
+    LIFETIME_LEADERBOARD_MIN_ENTRIES = ALL_TIME_LEADERBOARD_MIN_ENTRIES
 
     # Distances are on a 0-100 dial scale.
     SCORING_BANDS = [

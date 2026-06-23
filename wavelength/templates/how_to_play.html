@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}How to Play Wavelength World Online{% endblock %}
+{% block meta_description %}Learn how Wavelength World works, from clue writing and spectrum guessing to crowd-average scoring and leaderboards.{% endblock %}
+{% block body %}
+<header class="public-header">
+  <a class="public-brand" href="{{ url_for('web.index') }}">Wavelength World</a>
+  <nav class="public-nav" aria-label="Public">
+    <a class="active" href="{{ url_for('web.how_to_play') }}">How to Play</a>
+    {% if session.user_id %}
+      <a class="public-nav-cta" href="{{ url_for('web.play') }}">Play Now</a>
+    {% else %}
+      <a class="public-nav-cta" href="{{ url_for('web.login_page') }}">Play Free</a>
+    {% endif %}
+  </nav>
+</header>
+
+<main class="marketing-shell marketing-shell-narrow">
+  <section class="panel marketing-prose">
+    <span class="eyebrow">Rules and scoring</span>
+    <h1>How to play Wavelength World online</h1>
+    <p>
+      Wavelength World is a community-driven spectrum guessing game. Every clue belongs on a scale between two ideas,
+      and the fun comes from predicting where the broader crowd will place it.
+    </p>
+
+    <h2>Guessing rounds</h2>
+    <ul class="marketing-list">
+      <li>First, submit your own honest opinion about where the clue belongs on the spectrum.</li>
+      <li>That opinion becomes part of the dataset that defines the future crowd average for that clue.</li>
+      <li>Then make the scored guess: where do you think the global average opinion will land?</li>
+      <li>Your guesser score depends on accuracy against the crowd average, not on whether your personal opinion matches it.</li>
+    </ul>
+
+    <h2>Clue-writing rounds</h2>
+    <ul class="marketing-list">
+      <li>The game gives you a hidden target position on a spectrum.</li>
+      <li>You write a clue that should guide other players close to that target.</li>
+      <li>After enough people respond, your cluer score reflects how close their average guesses were to the target.</li>
+      <li>Guesser and cluer standings are tracked separately so both skills matter.</li>
+    </ul>
+
+    <h2>Scoring and leaderboards</h2>
+    <p>
+      Scores improve when you consistently predict the room. Leaderboards focus on average points per scored round,
+      which rewards players who can repeatedly read the crowd instead of just spiking one lucky answer.
+    </p>
+
+    <h2>Getting started</h2>
+    <p>
+      You can jump in as a guest right away or create an account to preserve your score history. Once you are signed in,
+      head to the play screen to answer prompts, write clues, and see how your instincts compare with everyone else.
+    </p>
+
+    <div class="hero-actions">
+      {% if session.user_id %}
+        <a class="button-link" href="{{ url_for('web.play') }}">Start playing</a>
+      {% else %}
+        <a class="button-link" href="{{ url_for('web.login_page') }}">Create account or play as guest</a>
+      {% endif %}
+    </div>
+  </section>
+</main>
+
+<footer class="public-footer">
+  <p>Ready to test how well you can read the crowd?</p>
+  <nav class="public-footer-nav" aria-label="Footer">
+    <a href="{{ url_for('web.index') }}">Home</a>
+    {% if session.user_id %}
+      <a href="{{ url_for('web.play') }}">Play</a>
+    {% else %}
+      <a href="{{ url_for('web.login_page') }}">Login</a>
+    {% endif %}
+  </nav>
+</footer>
+{% endblock %}
