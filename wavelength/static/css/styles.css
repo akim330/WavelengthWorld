@@ -404,6 +404,29 @@ tr:last-child td { border-bottom: 0; }
   max-width: 56rem;
   line-height: 1.45;
 }
+.history-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+.history-page-button {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border-radius: 999px;
+}
+.history-page-status {
+  min-width: 4.25rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
 .history-table-wrap table { min-width: 760px; }
 .history-arc-cell {
   width: 250px;
@@ -587,6 +610,31 @@ tr:last-child td { border-bottom: 0; }
 }
 .friend-comparison-legend {
   max-width: 14rem;
+}
+.friend-comparison-diagram {
+  display: grid;
+  justify-items: start;
+  gap: 0.15rem;
+}
+.friend-spectrum-endpoints {
+  display: flex;
+  justify-content: space-between;
+  width: 220px;
+  margin-top: -0.35rem;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1.15;
+}
+.friend-spectrum-endpoints span {
+  width: 45%;
+  overflow-wrap: anywhere;
+}
+.friend-spectrum-endpoints span:last-child {
+  text-align: right;
+}
+.friends-main .history-table-wrap table {
+  min-width: 680px;
 }
 .friend-request-toast {
   position: fixed;

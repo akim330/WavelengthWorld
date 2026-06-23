@@ -1,5 +1,6 @@
 (function () {
   const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+  const HISTORY_PAGE_SIZE = 10;
 
   const state = {
     guesser: null,
@@ -17,6 +18,20 @@
     // Mirrors the server-side privacy setting so the checkbox can roll back to
     // the last saved value if a settings request fails.
     showOnLeaderboards: true,
+    // Keeps the full history payload on the client while each visible tab shows
+    // one small page at a time. The API still returns the complete history so
+    // switching pages never needs another network request.
+    history: {
+      guesses: [],
+      clues: [],
+    },
+    // Tracks the zero-based page for each history tab independently, so a player
+    // can page through guesses, switch to clues, and come back to the same guess
+    // page without losing their place.
+    historyPages: {
+      guesses: 0,
+      clues: 0,
+    },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -482,6 +497,7 @@
 
   function renderHistoryTable(kind, tableHtml) {
     return `
+      ${renderHistoryPager(kind)}
       ${historyExplanation(kind)}
       ${tableHtml}`;
   }
@@ -490,18 +506,75 @@
     return renderHistoryTable(kind, `<div class="empty">${message}</div>`);
   }
 
+  function historyPageCount(rows) {
+    // Empty histories still render one disabled pager state, which keeps the
+    // section header from visually jumping between empty and populated states.
+    return Math.max(1, Math.ceil(rows.length / HISTORY_PAGE_SIZE));
+  }
+
+  function pageRows(kind, rows) {
+    const pageCount = historyPageCount(rows);
+    const currentPage = Math.min(state.historyPages[kind], pageCount - 1);
+    const startIndex = currentPage * HISTORY_PAGE_SIZE;
+
+    // Clamp the stored page before slicing so a refresh that returns fewer rows
+    // cannot leave the UI pointing at a now-empty page past the end.
+    state.historyPages[kind] = currentPage;
+    return rows.slice(startIndex, startIndex + HISTORY_PAGE_SIZE);
+  }
+
+  function renderHistoryPager(kind) {
+    const rows = state.history[kind] || [];
+    const pageCount = historyPageCount(rows);
+    const currentPage = Math.min(state.historyPages[kind], pageCount - 1);
+    const label = `${currentPage + 1} / ${pageCount}`;
+
+    // The controls use data attributes because both history tabs share the same
+    // rendering helpers. Event binding can then be attached after each tab is
+    // re-rendered without relying on duplicate IDs.
+    return `
+      <div class="history-pager" aria-label="${kind === 'guesses' ? 'Past guesses pages' : 'Past clues pages'}">
+        <button type="button" class="secondary history-page-button" data-history-kind="${kind}" data-history-direction="-1" aria-label="Previous page" ${currentPage === 0 ? 'disabled' : ''}>&lt;</button>
+        <span class="history-page-status">Page ${label}</span>
+        <button type="button" class="secondary history-page-button" data-history-kind="${kind}" data-history-direction="1" aria-label="Next page" ${currentPage >= pageCount - 1 ? 'disabled' : ''}>&gt;</button>
+      </div>`;
+  }
+
+  function bindHistoryPager(kind) {
+    // Re-rendering replaces the pager buttons, so listeners are rebound after
+    // each history tab update. The clamp protects against stale button clicks
+    // from racing with a refresh that changed the number of available pages.
+    document.querySelectorAll(`[data-history-kind="${kind}"]`).forEach((button) => {
+      button.addEventListener('click', () => {
+        const rows = state.history[kind] || [];
+        const pageCount = historyPageCount(rows);
+        const direction = Number(button.dataset.historyDirection);
+        state.historyPages[kind] = Math.min(Math.max(state.historyPages[kind] + direction, 0), pageCount - 1);
+
+        if (kind === 'guesses') {
+          renderGuessHistory(rows);
+        } else {
+          renderClueHistory(rows);
+        }
+      });
+    });
+  }
+
   function renderGuessHistory(rows) {
+    state.history.guesses = rows;
     if (!rows.length) {
       $('historyGuesses').innerHTML = emptyHistory('guesses', 'No guesses yet.');
+      bindHistoryPager('guesses');
       return;
     }
+    const visibleRows = pageRows('guesses', rows);
     $('historyGuesses').innerHTML = renderHistoryTable('guesses', `
       <table>
         <thead><tr>
           <th>Date</th><th>Spectrum</th><th>Clue</th><th>Result</th><th class="numeric">Points</th>
         </tr></thead>
         <tbody>
-          ${rows.map(row => `
+          ${visibleRows.map(row => `
             <tr>
               <td>${formatDate(row.created_at)}</td>
               <td>${escapeHtml(row.spectrum)}</td>
@@ -511,20 +584,24 @@
             </tr>`).join('')}
         </tbody>
       </table>`);
+    bindHistoryPager('guesses');
   }
 
   function renderClueHistory(rows) {
+    state.history.clues = rows;
     if (!rows.length) {
       $('historyClues').innerHTML = emptyHistory('clues', 'No clues yet.');
+      bindHistoryPager('clues');
       return;
     }
+    const visibleRows = pageRows('clues', rows);
     $('historyClues').innerHTML = renderHistoryTable('clues', `
       <table>
         <thead><tr>
           <th>Date</th><th>Spectrum</th><th>Clue</th><th>Result</th><th class="numeric">Points</th>
         </tr></thead>
         <tbody>
-          ${rows.map(row => `
+          ${visibleRows.map(row => `
             <tr>
               <td>${formatDate(row.created_at)}</td>
               <td>${escapeHtml(row.spectrum)}</td>

@@ -78,6 +78,16 @@ def serialize_friend_request_list(friend_requests: list[FriendRequest], directio
     return rows
 
 
+def serialize_spectrum_poles(spectrum: Spectrum) -> dict:
+    # Friend comparison diagrams show the spectrum poles directly under the arc,
+    # so the API returns the two endpoint labels separately instead of forcing
+    # the browser to split the combined display label.
+    return {
+        "spectrum_left_label": spectrum.left_label,
+        "spectrum_right_label": spectrum.right_label,
+    }
+
+
 def pending_request_between(first_user_id: int, second_user_id: int) -> FriendRequest | None:
     # Pending requests should be unique regardless of who initiated the request,
     # because a reverse pending request would leave both players waiting on each
@@ -528,6 +538,7 @@ def friend_comparison(friend_id: int):
             {
                 "created_at": guess.created_at.isoformat(),
                 "spectrum": clue.spectrum.label,
+                **serialize_spectrum_poles(clue.spectrum),
                 "clue_text": clue.text,
                 "your_predicted_average_position": round(guess.predicted_average_position, 2),
                 "friend_predicted_average_position": round(friend_guess.predicted_average_position, 2),
@@ -559,6 +570,7 @@ def friend_comparison(friend_id: int):
             {
                 "created_at": clue.created_at.isoformat(),
                 "spectrum": clue.spectrum.label,
+                **serialize_spectrum_poles(clue.spectrum),
                 "clue_text": clue.text,
                 "friend_target_position": round(clue.target_position, 2),
                 "your_predicted_average_position": round(guess.predicted_average_position, 2),
@@ -590,6 +602,7 @@ def friend_comparison(friend_id: int):
             {
                 "created_at": clue.created_at.isoformat(),
                 "spectrum": clue.spectrum.label,
+                **serialize_spectrum_poles(clue.spectrum),
                 "clue_text": clue.text,
                 "your_target_position": round(clue.target_position, 2),
                 "friend_predicted_average_position": round(guess.predicted_average_position, 2),

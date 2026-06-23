@@ -125,25 +125,38 @@
       </div>`;
   }
 
-  function renderGuessComparisonGraphic(row) {
+  function renderComparisonDiagram(row, arcHtml, legendHtml) {
+    // Friend comparison rows put the spectrum poles directly beneath the arc so
+    // the mini diagram reads like the larger dial UI elsewhere in the game.
     return `
-      ${window.WavelengthHistoryGraphics.renderHistoryArc({
+      <div class="friend-comparison-diagram">
+        ${arcHtml}
+        <div class="friend-spectrum-endpoints">
+          <span>${escapeHtml(row.spectrum_left_label || '')}</span>
+          <span>${escapeHtml(row.spectrum_right_label || '')}</span>
+        </div>
+        ${legendHtml}
+      </div>`;
+  }
+
+  function renderGuessComparisonGraphic(row) {
+    const arcHtml = window.WavelengthHistoryGraphics.renderHistoryArc({
         bandCenter: row.current_global_average,
         ariaLabel: 'Blue pin shows your guess. Purple pin shows your friend guess. Bands are centered on the global average.',
         markers: [
           { value: row.your_predicted_average_position, className: 'history-marker-you' },
           { value: row.friend_predicted_average_position, className: 'history-marker-friend' },
         ],
-      })}
-      ${renderLegend([
+      });
+    const legendHtml = renderLegend([
         { className: 'history-legend-you', label: 'Your guess' },
         { className: 'history-legend-friend', label: 'Friend guess' },
-      ])}`;
+      ]);
+    return renderComparisonDiagram(row, arcHtml, legendHtml);
   }
 
   function renderClueComparisonGraphic(row) {
-    return `
-      ${window.WavelengthHistoryGraphics.renderHistoryArc({
+    const arcHtml = window.WavelengthHistoryGraphics.renderHistoryArc({
         bandCenter: row.current_global_average,
         ariaLabel: 'Black pin shows friend target. Blue pin shows your guess. Red pin shows the global average centered in the scoring bands.',
         markers: [
@@ -151,17 +164,17 @@
           { value: row.your_predicted_average_position, className: 'history-marker-you' },
           { value: row.current_global_average, className: 'history-marker-average' },
         ],
-      })}
-      ${renderLegend([
+      });
+    const legendHtml = renderLegend([
         { className: 'history-legend-target', label: 'Friend target' },
         { className: 'history-legend-you', label: 'Your guess' },
         { className: 'history-legend-average', label: 'Global average' },
-      ])}`;
+      ]);
+    return renderComparisonDiagram(row, arcHtml, legendHtml);
   }
 
   function renderYourClueComparisonGraphic(row) {
-    return `
-      ${window.WavelengthHistoryGraphics.renderHistoryArc({
+    const arcHtml = window.WavelengthHistoryGraphics.renderHistoryArc({
         bandCenter: row.current_global_average,
         ariaLabel: 'Black pin shows your target. Purple pin shows your friend guess. Red pin shows the global average centered in the scoring bands.',
         markers: [
@@ -169,12 +182,13 @@
           { value: row.friend_predicted_average_position, className: 'history-marker-friend' },
           { value: row.current_global_average, className: 'history-marker-average' },
         ],
-      })}
-      ${renderLegend([
+      });
+    const legendHtml = renderLegend([
         { className: 'history-legend-target', label: 'Your target' },
         { className: 'history-legend-friend', label: 'Friend guess' },
         { className: 'history-legend-average', label: 'Global average' },
-      ])}`;
+      ]);
+    return renderComparisonDiagram(row, arcHtml, legendHtml);
   }
 
   function renderGuesses(rows) {
@@ -187,13 +201,12 @@
       <p class="history-description muted">Shared guesses compare each player&apos;s scored prediction for clues both of you answered.</p>
       <table>
         <thead><tr>
-          <th>Date</th><th>Spectrum</th><th>Clue</th><th>Comparison</th><th class="numeric">N</th>
+          <th>Date</th><th>Clue</th><th>Comparison</th><th class="numeric">N</th>
         </tr></thead>
         <tbody>
           ${rows.map(row => `
             <tr>
               <td>${formatDate(row.created_at)}</td>
-              <td>${escapeHtml(row.spectrum)}</td>
               <td>${escapeHtml(row.clue_text)}</td>
               <td class="history-arc-cell">${renderGuessComparisonGraphic(row)}</td>
               <td class="numeric">${row.guess_count}</td>
@@ -212,13 +225,12 @@
       <p class="history-description muted">Friend clues show clues your friend wrote that you answered, with your scored prediction shown against their target.</p>
       <table>
         <thead><tr>
-          <th>Date</th><th>Spectrum</th><th>Clue</th><th>Comparison</th><th class="numeric">N</th>
+          <th>Date</th><th>Clue</th><th>Comparison</th><th class="numeric">N</th>
         </tr></thead>
         <tbody>
           ${rows.map(row => `
             <tr>
               <td>${formatDate(row.created_at)}</td>
-              <td>${escapeHtml(row.spectrum)}</td>
               <td>${escapeHtml(row.clue_text)}</td>
               <td class="history-arc-cell">${renderClueComparisonGraphic(row)}</td>
               <td class="numeric">${row.guess_count}</td>
@@ -237,13 +249,12 @@
       <p class="history-description muted">Your clues show clues you wrote that your friend answered, with their scored prediction shown against your target.</p>
       <table>
         <thead><tr>
-          <th>Date</th><th>Spectrum</th><th>Clue</th><th>Comparison</th><th class="numeric">N</th>
+          <th>Date</th><th>Clue</th><th>Comparison</th><th class="numeric">N</th>
         </tr></thead>
         <tbody>
           ${rows.map(row => `
             <tr>
               <td>${formatDate(row.created_at)}</td>
-              <td>${escapeHtml(row.spectrum)}</td>
               <td>${escapeHtml(row.clue_text)}</td>
               <td class="history-arc-cell">${renderYourClueComparisonGraphic(row)}</td>
               <td class="numeric">${row.guess_count}</td>
