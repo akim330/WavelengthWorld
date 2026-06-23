@@ -179,7 +179,7 @@ SPECTRUMS = [
     ("Always on time", "Never on time", "General", "medium"),
     ("Will live to 100", "Won't live to 100", "General", "medium"),
     ("Good Disney character", "Bad Disney character", "General", "medium"),
-    ("Good president", "Bad president", "General", "medium"),
+    ("Good world leader", "Bad world leader", "General", "medium"),
     ("Strange", "Weird", "General", "medium"),
     ("Infamous", "Famous", "General", "medium"),
     ("Most powerful god", "Least powerful god", "General", "medium"),
@@ -193,7 +193,7 @@ SPECTRUMS = [
     ("Person who'd beat you up", "Person you could beat up", "General", "medium"),
     ("Overrated game", "Underrated game", "General", "medium"),
     ("You don't want your parents to watch you do it", "You want your parents to watch you do it", "General", "medium"),
-    ("Evil people", "Good people", "General", "medium"),
+    ("Evil", "Good", "General", "medium"),
     ("Jock", "Nerd", "General", "medium"),
 ]
 
