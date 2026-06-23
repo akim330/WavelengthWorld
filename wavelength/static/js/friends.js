@@ -145,15 +145,17 @@
     return `
       ${window.WavelengthHistoryGraphics.renderHistoryArc({
         bandCenter: row.current_global_average,
-        ariaLabel: 'Black pin shows friend target. Blue pin shows your guess. Bands are centered on the global average.',
+        ariaLabel: 'Black pin shows friend target. Blue pin shows your guess. Red pin shows the global average centered in the scoring bands.',
         markers: [
           { value: row.friend_target_position, className: 'history-marker-target' },
           { value: row.your_predicted_average_position, className: 'history-marker-you' },
+          { value: row.current_global_average, className: 'history-marker-average' },
         ],
       })}
       ${renderLegend([
         { className: 'history-legend-target', label: 'Friend target' },
         { className: 'history-legend-you', label: 'Your guess' },
+        { className: 'history-legend-average', label: 'Global average' },
       ])}`;
   }
 
@@ -161,15 +163,17 @@
     return `
       ${window.WavelengthHistoryGraphics.renderHistoryArc({
         bandCenter: row.current_global_average,
-        ariaLabel: 'Black pin shows your target. Purple pin shows your friend guess. Bands are centered on the global average.',
+        ariaLabel: 'Black pin shows your target. Purple pin shows your friend guess. Red pin shows the global average centered in the scoring bands.',
         markers: [
           { value: row.your_target_position, className: 'history-marker-target' },
           { value: row.friend_predicted_average_position, className: 'history-marker-friend' },
+          { value: row.current_global_average, className: 'history-marker-average' },
         ],
       })}
       ${renderLegend([
         { className: 'history-legend-target', label: 'Your target' },
         { className: 'history-legend-friend', label: 'Friend guess' },
+        { className: 'history-legend-average', label: 'Global average' },
       ])}`;
   }
 
