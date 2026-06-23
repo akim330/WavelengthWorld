@@ -207,12 +207,14 @@ SPECTRUMS = [
     ("Chaotic good", "Chaotic evil", "General", "medium"),
     ("Forgettable", "Iconic", "General", "medium"),
     ("Weak excuse for being late", "Valid excuse for being late", "General", "medium"),
-    ("Too much work", "Worth the effort", "General", "medium"),
+    ("Not worth the effort", "Worth the effort", "General", "medium"),
     ("Pet peeve", "Red flag", "General", "medium"),
     ("Not a cult", "Definitely a cult", "General", "medium"),
     ("Mid", "Peak", "General", "medium"),
     ("Bad fictional world to live in", "Good fictional world to live in", "General", "medium"),
     ("Best friend material", "Spouse material", "General", "medium"),
+    ("Cringe", "Aura", "General", "medium"),
+    ("Bad suffering", "Good suffering", "General", "medium"),
 ]
 
 # Entries are (left_label, right_label, clue_text, target_position).
