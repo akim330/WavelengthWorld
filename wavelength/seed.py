@@ -87,7 +87,7 @@ SPECTRUMS = [
     ("Hygienic", "Unhygienic", "General", "medium"),
     ("Good music", "Bad music", "General", "medium"),
     ("Useful", "Useless", "General", "medium"),
-    ("Art", "Movie that Godzilla would ruin", "General", "medium"),
+    ("Work of art", "Trash", "General", "medium"),
     ("Important", "Unimportant", "General", "medium"),
     ("Hard to spell", "Easy to spell", "General", "medium"),
     ("Virtue", "Vice", "General", "medium"),

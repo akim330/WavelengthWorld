@@ -109,6 +109,7 @@ h3 { font-size: 1rem; margin-bottom: 0.7rem; }
   background: white;
 }
 .app-nav a {
+  position: relative;
   color: var(--ink);
   text-decoration: none;
   font-weight: 800;
@@ -118,6 +119,17 @@ h3 { font-size: 1rem; margin-bottom: 0.7rem; }
 .app-nav a.active {
   color: white;
   background: var(--accent);
+}
+.app-nav a.has-pending::after {
+  content: "";
+  position: absolute;
+  top: 0.32rem;
+  right: 0.32rem;
+  width: 0.52rem;
+  height: 0.52rem;
+  border: 2px solid white;
+  border-radius: 999px;
+  background: var(--danger);
 }
 
 .app-shell {

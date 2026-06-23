@@ -47,8 +47,22 @@
     toastTimer = window.setTimeout(() => toast.classList.add('hidden'), 9000);
   }
 
+  function updateFriendNavBadge(count) {
+    // The top-nav badge is the persistent notification surface: unlike the
+    // temporary toast, it stays visible until the incoming request count is zero.
+    document.querySelectorAll('[data-friend-nav-link]').forEach((link) => {
+      link.classList.toggle('has-pending', count > 0);
+      if (count > 0) {
+        link.setAttribute('aria-label', `Friends, ${count} pending friend ${count === 1 ? 'request' : 'requests'}`);
+      } else {
+        link.removeAttribute('aria-label');
+      }
+    });
+  }
+
   function updateIncomingCount(count) {
     if (count === null) return;
+    updateFriendNavBadge(count);
     if (count > lastIncomingCount || (count > 0 && lastIncomingCount === 0)) {
       showFriendRequestToast(count);
     }
