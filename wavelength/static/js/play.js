@@ -349,6 +349,14 @@
   function renderLeaderboardSection(role, data) {
     const targetId = role === 'guesser' ? 'guesserLeaderboard' : 'cluerLeaderboard';
     $(targetId).innerHTML = renderLeaderboard(data);
+    renderLeaderboardThreshold(role, data.minimum_scored_entries);
+  }
+
+  function renderLeaderboardThreshold(role, minimumEntries) {
+    const thresholdId = role === 'guesser' ? 'guesserLeaderboardThreshold' : 'cluerLeaderboardThreshold';
+    const safeMinimum = Number.isFinite(Number(minimumEntries)) ? Number(minimumEntries) : 0;
+    const entryLabel = safeMinimum === 1 ? 'play' : 'plays';
+    $(thresholdId).textContent = `Minimum required: ${safeMinimum} ${entryLabel}`;
   }
 
   async function loadLeaderboard(role) {

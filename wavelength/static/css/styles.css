@@ -421,6 +421,10 @@ h3 { font-size: 1rem; margin-bottom: 0.7rem; }
 .leaderboard-stack { display: grid; gap: 1rem; min-width: 0; }
 .leaderboard-block { min-width: 0; }
 .leaderboard-block h3 { margin-bottom: 0.55rem; }
+.leaderboard-threshold {
+  margin: -0.2rem 0 0.65rem;
+  font-size: 0.82rem;
+}
 .leaderboard-block table { font-size: 0.86rem; }
 .leaderboard-block .empty {
   border-radius: 14px;
