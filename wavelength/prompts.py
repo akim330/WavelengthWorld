@@ -27,28 +27,35 @@ def get_guesser_prompt(user: User) -> dict | None:
         PromptView.clue_id.isnot(None),
     )
 
-    clue = (
-        Clue.query.join(Spectrum)
-        .filter(
-            Clue.is_active.is_(True),
-            Spectrum.is_active.is_(True),
-            ~Clue.id.in_(guessed_subquery),
-            ~Clue.id.in_(viewed_subquery),
-            or_(Clue.author_user_id.is_(None), Clue.author_user_id != user.id),
-        )
-        .order_by(func.random())
-        .first()
+    # A skipped Guesser prompt is still a valid future prompt because the player
+    # has not actually guessed it yet. The first pass protects the immediate
+    # Play Another flow from repeating recently skipped clues while fresh clues
+    # remain; the fallback pass intentionally lets skipped clues return after
+    # every never-seen eligible clue has been offered.
+    base_query = Clue.query.join(Spectrum).filter(
+        Clue.is_active.is_(True),
+        Spectrum.is_active.is_(True),
+        ~Clue.id.in_(guessed_subquery),
+        or_(Clue.author_user_id.is_(None), Clue.author_user_id != user.id),
     )
+    is_recycled_view = False
+    clue = base_query.filter(~Clue.id.in_(viewed_subquery)).order_by(func.random()).first()
+    if clue is None:
+        is_recycled_view = True
+        clue = base_query.order_by(func.random()).first()
 
     if clue is None:
         return None
 
-    # Mark as seen so Play Again avoids resurfacing the same clue even if unsubmitted.
-    db.session.add(PromptView(user_id=user.id, prompt_type="guesser", clue_id=clue.id))
-    try:
-        db.session.commit()
-    except IntegrityError:
-        db.session.rollback()
+    # Mark new prompts as seen so Play Again can exhaust fresh prompts before
+    # recycling skipped ones. Recycled prompts already have a PromptView row, so
+    # they do not need another write when they come back around.
+    if not is_recycled_view:
+        db.session.add(PromptView(user_id=user.id, prompt_type="guesser", clue_id=clue.id))
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
 
     return {
         "clue_id": clue.id,

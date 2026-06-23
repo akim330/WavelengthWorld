@@ -410,16 +410,15 @@
     return `<span class="status-scored">${item.score}/4</span>`;
   }
 
-  function renderHistoryLegend(items, bandLabel) {
+  function renderHistoryLegend(items) {
     // History rows use compact colored pins without text labels inside the SVG.
-    // This helper keeps the pin meanings next to each row and optionally names
-    // the scoring bands so players can tell which reference point the bands use.
+    // This helper keeps the pin meanings next to each row without repeating the
+    // scoring-band explanation in every legend.
     return `
       <div class="history-legend" aria-hidden="true">
         ${items.map(item => `
           <span><span class="history-legend-swatch ${item.className}"></span>${escapeHtml(item.label)}</span>
         `).join('')}
-        ${bandLabel ? `<span><span class="history-legend-band"></span>${escapeHtml(bandLabel)}</span>` : ''}
       </div>`;
   }
 
@@ -435,7 +434,7 @@
       })}
       ${renderHistoryLegend([
         { className: 'history-legend-you', label: 'Personal opinion' },
-        { className: 'history-legend-average', label: 'Scored average guess' },
+        { className: 'history-legend-average', label: 'Guess for global average' },
       ])}`;
   }
 
@@ -456,7 +455,7 @@
       ${renderHistoryLegend([
         { className: 'history-legend-target', label: 'Your target' },
         { className: 'history-legend-average', label: 'Global average' },
-      ], 'Global average bands')}`;
+      ])}`;
   }
 
   function renderClueHistoryResult(row) {

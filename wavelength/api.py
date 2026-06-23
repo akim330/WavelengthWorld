@@ -568,7 +568,38 @@ def friend_comparison(friend_id: int):
             }
         )
 
-    return jsonify({"friend": serialize_friend(friend), "guesses": guess_rows, "clues": clue_rows})
+    your_clues = (
+        Guess.query.join(Clue, Guess.clue_id == Clue.id)
+        .join(Spectrum, Clue.spectrum_id == Spectrum.id)
+        .filter(
+            Guess.user_id == friend.id,
+            Clue.author_user_id == user.id,
+            Clue.is_active.is_(True),
+            Spectrum.is_active.is_(True),
+        )
+        .order_by(Clue.created_at.desc())
+        .limit(200)
+        .all()
+    )
+
+    your_clue_rows = []
+    for guess in your_clues:
+        clue = guess.clue
+        result = score_clue(clue)
+        your_clue_rows.append(
+            {
+                "created_at": clue.created_at.isoformat(),
+                "spectrum": clue.spectrum.label,
+                "clue_text": clue.text,
+                "your_target_position": round(clue.target_position, 2),
+                "friend_predicted_average_position": round(guess.predicted_average_position, 2),
+                "current_global_average": round_or_none(result.global_average),
+                "guess_count": result.guess_count,
+                "status": result.status,
+            }
+        )
+
+    return jsonify({"friend": serialize_friend(friend), "guesses": guess_rows, "clues": clue_rows, "your_clues": your_clue_rows})
 
 
 @api_bp.get("/me/history")

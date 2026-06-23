@@ -20,6 +20,11 @@
 
 <main class="friends-shell">
   <aside class="friends-sidebar panel">
+    <section class="friend-privacy-note">
+      <strong>Friend visibility</strong>
+      <p class="muted">When you become friends with someone, they can see your answers and clue history in friend comparisons.</p>
+    </section>
+
     <section class="friend-request-section">
       <h2>Add Friend</h2>
       <form id="friendRequestForm" class="friend-request-form">
@@ -67,14 +72,17 @@
     <div id="friendComparisonContent" class="hidden">
       <div class="tabs">
         <button class="tab active" data-friend-tab="guesses">Guesses</button>
-        <button class="tab" data-friend-tab="clues">Clues</button>
+        <button class="tab" data-friend-tab="friendClues">Friend's clues</button>
+        <button class="tab" data-friend-tab="yourClues">Your clues</button>
       </div>
       <div id="friendGuesses" class="history-table-wrap"></div>
       <div id="friendClues" class="history-table-wrap hidden"></div>
+      <div id="yourClues" class="history-table-wrap hidden"></div>
     </div>
   </section>
 </main>
 
 <script src="{{ url_for('static', filename='js/history_graphics.js') }}"></script>
+<script src="{{ url_for('static', filename='js/friend_notifications.js') }}"></script>
 <script src="{{ url_for('static', filename='js/friends.js') }}"></script>
 {% endblock %}

@@ -105,6 +105,9 @@
     $('incomingRequests').innerHTML = renderRequestList(data.incoming_requests || [], 'incoming');
     $('outgoingRequests').innerHTML = renderRequestList(data.outgoing_requests || [], 'outgoing');
     renderFriendsList();
+    if (window.WavelengthFriendNotifications) {
+      window.WavelengthFriendNotifications.updateIncomingCount((data.incoming_requests || []).length);
+    }
   }
 
   function friendById(friendId) {
@@ -119,7 +122,6 @@
         ${items.map(item => `
           <span><span class="history-legend-swatch ${item.className}"></span>${escapeHtml(item.label)}</span>
         `).join('')}
-        <span><span class="history-legend-band"></span>Global average bands</span>
       </div>`;
   }
 
@@ -155,6 +157,22 @@
       ])}`;
   }
 
+  function renderYourClueComparisonGraphic(row) {
+    return `
+      ${window.WavelengthHistoryGraphics.renderHistoryArc({
+        bandCenter: row.current_global_average,
+        ariaLabel: 'Black pin shows your target. Purple pin shows your friend guess. Bands are centered on the global average.',
+        markers: [
+          { value: row.your_target_position, className: 'history-marker-target' },
+          { value: row.friend_predicted_average_position, className: 'history-marker-friend' },
+        ],
+      })}
+      ${renderLegend([
+        { className: 'history-legend-target', label: 'Your target' },
+        { className: 'history-legend-friend', label: 'Friend guess' },
+      ])}`;
+  }
+
   function renderGuesses(rows) {
     if (!rows.length) {
       $('friendGuesses').innerHTML = emptyBlock('No shared answered clues yet.');
@@ -180,14 +198,14 @@
       </table>`;
   }
 
-  function renderClues(rows) {
+  function renderFriendClues(rows) {
     if (!rows.length) {
       $('friendClues').innerHTML = emptyBlock('No friend clues answered by you yet.');
       return;
     }
 
     $('friendClues').innerHTML = `
-      <p class="history-description muted">Friend clues show clues your friend wrote that you answered, with your scored prediction shown against their target and the current global average bands.</p>
+      <p class="history-description muted">Friend clues show clues your friend wrote that you answered, with your scored prediction shown against their target.</p>
       <table>
         <thead><tr>
           <th>Date</th><th>Spectrum</th><th>Clue</th><th>Comparison</th><th class="numeric">N</th>
@@ -199,6 +217,31 @@
               <td>${escapeHtml(row.spectrum)}</td>
               <td>${escapeHtml(row.clue_text)}</td>
               <td class="history-arc-cell">${renderClueComparisonGraphic(row)}</td>
+              <td class="numeric">${row.guess_count}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  function renderYourClues(rows) {
+    if (!rows.length) {
+      $('yourClues').innerHTML = emptyBlock('No clues of yours answered by this friend yet.');
+      return;
+    }
+
+    $('yourClues').innerHTML = `
+      <p class="history-description muted">Your clues show clues you wrote that your friend answered, with their scored prediction shown against your target.</p>
+      <table>
+        <thead><tr>
+          <th>Date</th><th>Spectrum</th><th>Clue</th><th>Comparison</th><th class="numeric">N</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              <td>${formatDate(row.created_at)}</td>
+              <td>${escapeHtml(row.spectrum)}</td>
+              <td>${escapeHtml(row.clue_text)}</td>
+              <td class="history-arc-cell">${renderYourClueComparisonGraphic(row)}</td>
               <td class="numeric">${row.guess_count}</td>
             </tr>`).join('')}
         </tbody>
@@ -220,7 +263,8 @@
     $('selectedFriendTitle').textContent = friend ? friend.username : 'Friend comparison';
     $('selectedFriendSubtitle').textContent = 'Compare scored guesses and answered clues.';
     renderGuesses(state.comparison.guesses || []);
-    renderClues(state.comparison.clues || []);
+    renderFriendClues(state.comparison.clues || []);
+    renderYourClues(state.comparison.your_clues || []);
     setActiveTab(state.activeTab);
   }
 
@@ -230,7 +274,8 @@
       tab.classList.toggle('active', tab.dataset.friendTab === tabName);
     });
     $('friendGuesses').classList.toggle('hidden', tabName !== 'guesses');
-    $('friendClues').classList.toggle('hidden', tabName !== 'clues');
+    $('friendClues').classList.toggle('hidden', tabName !== 'friendClues');
+    $('yourClues').classList.toggle('hidden', tabName !== 'yourClues');
   }
 
   async function loadFriends() {
