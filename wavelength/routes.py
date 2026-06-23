@@ -15,6 +15,7 @@ from .session_helpers import current_user, get_csrf_token, login_required, valid
 web_bp = Blueprint("web", __name__)
 
 MIN_PASSWORD_LENGTH = 8
+SITE_BASE_URL = "https://wavelengthworld.app"
 
 
 @web_bp.context_processor
@@ -95,7 +96,19 @@ def sign_in_user(user: User):
 def index():
     if current_user() is not None:
         return redirect(url_for("web.play"))
+    return render_template("index.html")
+
+
+@web_bp.get("/login")
+def login_page():
+    if current_user() is not None:
+        return redirect(url_for("web.play"))
     return login_template()
+
+
+@web_bp.get("/how-to-play")
+def how_to_play():
+    return render_template("how_to_play.html")
 
 
 @web_bp.post("/login")
@@ -116,6 +129,42 @@ def login():
     current_app.logger.error("Unknown login action %s.", action)
     flash("Something went wrong. Refresh the page and try again.", "error")
     return redirect(url_for("web.index"))
+
+
+@web_bp.get("/robots.txt")
+def robots_txt():
+    content = "\n".join(
+        [
+            "User-agent: *",
+            "Allow: /",
+            "Disallow: /play",
+            "Disallow: /friends",
+            "Disallow: /api",
+            "Disallow: /login",
+            f"Sitemap: {SITE_BASE_URL}/sitemap.xml",
+            "",
+        ]
+    )
+    return current_app.response_class(content, mimetype="text/plain")
+
+
+@web_bp.get("/sitemap.xml")
+def sitemap_xml():
+    content = "\n".join(
+        [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+            "  <url>",
+            f"    <loc>{SITE_BASE_URL}/</loc>",
+            "  </url>",
+            "  <url>",
+            f"    <loc>{SITE_BASE_URL}/how-to-play</loc>",
+            "  </url>",
+            "</urlset>",
+            "",
+        ]
+    )
+    return current_app.response_class(content, mimetype="application/xml")
 
 
 def lookup_username():

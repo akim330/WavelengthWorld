@@ -66,6 +66,35 @@ h3 { font-size: 1rem; margin-bottom: 0.7rem; }
   place-items: center;
   padding: 1.5rem;
 }
+.landing-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+.landing-card {
+  width: min(100%, 980px);
+}
+.landing-subtitle {
+  max-width: 44rem;
+  margin-bottom: 1rem;
+}
+.landing-cta-wrap {
+  margin: 1.15rem 0 0;
+}
+.landing-cta {
+  display: inline-block;
+  text-decoration: none;
+  border-radius: 999px;
+  padding: 0.92rem 1.5rem;
+  color: white;
+  background: var(--accent);
+  font-weight: 800;
+  box-shadow: 0 6px 16px rgba(48, 63, 159, 0.22);
+}
+.landing-cta:hover {
+  filter: brightness(1.05);
+}
 .login-card {
   width: min(100%, 470px);
   background: var(--card);

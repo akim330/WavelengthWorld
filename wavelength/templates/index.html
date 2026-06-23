@@ -1,97 +1,39 @@
 {% extends "base.html" %}
-{% block title %}Wavelength World — Play a Free Online Wavelength-Style Game{% endblock %}
-{% block meta_description %}Play Wavelength World, a free online social guessing game where players give clues, guess positions on a spectrum, and compete on leaderboards.{% endblock %}
+{% block title %}Wavelength World - Free Online Wavelength Game{% endblock %}
+{% block meta_description %}Play Wavelength online at Wavelength World. Guess crowd opinions on a spectrum, write clues, and compete on leaderboards in a free browser game.{% endblock %}
+{% block head_extra %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Wavelength World",
+  "url": "https://wavelengthworld.app",
+  "description": "Wavelength World is a free online social spectrum guessing game."
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoGame",
+  "name": "Wavelength World",
+  "url": "https://wavelengthworld.app",
+  "applicationCategory": "Game",
+  "operatingSystem": "Web Browser",
+  "description": "Play Wavelength online by guessing where clues land on a social spectrum and writing clues for other players."
+}
+</script>
+{% endblock %}
 {% block body %}
-<header class="public-header">
-  <a class="public-brand" href="{{ url_for('web.index') }}">Wavelength World</a>
-  <nav class="public-nav" aria-label="Public">
-    <a href="{{ url_for('web.how_to_play') }}">How to Play</a>
-    {% if session.user_id %}
-      <a class="public-nav-cta" href="{{ url_for('web.play') }}">Play Now</a>
-    {% else %}
-      <a class="public-nav-cta" href="{{ url_for('web.login_page') }}">Play Free</a>
-    {% endif %}
-  </nav>
-</header>
-
-<main class="marketing-shell">
-  <section class="hero-card">
-    <div class="hero-copy">
-      <span class="eyebrow">Online social spectrum game</span>
-      <h1>Play a worldwide Wavelength-style guessing game online</h1>
-      <p class="hero-lede">
-        Wavelength World is a free online spectrum guessing game. Give clues, guess where other players will place
-        them, and climb leaderboards by reading the crowd better than everyone else.
-      </p>
-      <div class="hero-actions">
-        {% if session.user_id %}
-          <a class="button-link" href="{{ url_for('web.play') }}">Go to the game</a>
-        {% else %}
-          <a class="button-link" href="{{ url_for('web.login_page') }}">Play free</a>
-        {% endif %}
-        <a class="button-link secondary-link" href="{{ url_for('web.how_to_play') }}">See how it works</a>
-      </div>
-    </div>
-
-    <article class="hero-preview panel" aria-labelledby="homepagePreviewTitle">
-      <h2 id="homepagePreviewTitle">Example round</h2>
-      <p class="muted">A clue giver tries to make the crowd land near a hidden target on a spectrum.</p>
-      <div class="marketing-spectrum">
-        <span>Underrated</span>
-        <span>Overrated</span>
-      </div>
-      <div class="marketing-clue">
-        <span class="label">Example clue</span>
-        <strong>Brunch</strong>
-      </div>
-      <p class="muted">Your personal opinion helps define the dataset, then your scored guess predicts the global average.</p>
+<main class="landing-page">
+  <section class="landing-card panel">
+    <h1>Wavelength World</h1>
+    <p class="muted landing-subtitle">Play Wavelength online with quick rounds, crowd-guessing strategy, and clue-writing competition.</p>
+    <article class="game-explainer" aria-labelledby="gameExplainerTitle">
+      {% include "_game_explainer.html" %}
     </article>
-  </section>
-
-  <section class="marketing-grid" aria-label="Homepage details">
-    <article class="panel">
-      <h2>What the game is</h2>
-      <p>
-        Wavelength World is inspired by the social board game Wavelength. Every prompt lives on a spectrum, like
-        <strong>harmless to dangerous</strong> or <strong>cold to hot</strong>, and the challenge is understanding how
-        the broader player base thinks.
-      </p>
-      <p>
-        Instead of matching one friend at the table, you are trying to read the average opinion of everyone who has
-        answered that clue.
-      </p>
-    </article>
-
-    <article class="panel">
-      <h2>How it works</h2>
-      <ul class="marketing-list">
-        <li>Submit your own honest position on a spectrum to help shape the crowd average.</li>
-        <li>Make a scored guess about where the overall player base will land.</li>
-        <li>Write clues for hidden targets and compete as both a guesser and a clue giver.</li>
-      </ul>
-    </article>
-
-    <article class="panel">
-      <h2>Why play</h2>
-      <ul class="marketing-list">
-        <li>Daily and all-time leaderboard races reward accuracy over randomness.</li>
-        <li>Player-written clues keep the catalog growing with fresh social judgment calls.</li>
-        <li>Quick guest access makes it easy to try a round before committing to an account.</li>
-      </ul>
-    </article>
+    <p class="landing-cta-wrap">
+      <a class="landing-cta" href="{{ url_for('web.login_page') }}">Play Wavelength Online</a>
+    </p>
   </section>
 </main>
-
-<footer class="public-footer">
-  <p>Wavelength World is a free online social guessing game for players who love reading the room.</p>
-  <nav class="public-footer-nav" aria-label="Footer">
-    <a href="{{ url_for('web.index') }}">Home</a>
-    <a href="{{ url_for('web.how_to_play') }}">How to Play</a>
-    {% if session.user_id %}
-      <a href="{{ url_for('web.play') }}">Play</a>
-    {% else %}
-      <a href="{{ url_for('web.login_page') }}">Login</a>
-    {% endif %}
-  </nav>
-</footer>
 {% endblock %}

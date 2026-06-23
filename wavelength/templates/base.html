@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Wavelength World{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}Wavelength World is a free online social spectrum guessing game where players guess crowd opinions and write clues.{% endblock %}">
+    <link rel="canonical" href="https://wavelengthworld.app{{ request.path }}">
+    <meta property="og:site_name" content="Wavelength World">
+    <meta property="og:title" content="{{ self.title()|striptags }}">
+    <meta property="og:description" content="{{ self.meta_description()|striptags }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://wavelengthworld.app{{ request.path }}">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{{ self.title()|striptags }}">
+    <meta name="twitter:description" content="{{ self.meta_description()|striptags }}">
+    {% block head_extra %}{% endblock %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   </head>
   <body>

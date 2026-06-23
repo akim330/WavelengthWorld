@@ -30,7 +30,7 @@
         <label for="password">Password</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
         <button type="submit">Log In</button>
-        <a class="login-back-link" href="{{ url_for('web.index') }}">Use a different username</a>
+        <a class="login-back-link" href="{{ url_for('web.login_page') }}">Use a different username</a>
       {% elif mode == "claim" %}
         <input type="hidden" name="action" value="claim">
         <p class="login-mode-note">This username already exists from the old passwordless login. Set a password now to keep using this account.</p>
@@ -44,7 +44,7 @@
         <input id="email" name="email" type="email" autocomplete="email" value="{{ email }}">
         <p class="login-help">Email is only used so you can recover or get help with this account later. You can leave it blank.</p>
         <button type="submit">Set Password</button>
-        <a class="login-back-link" href="{{ url_for('web.index') }}">Use a different username</a>
+        <a class="login-back-link" href="{{ url_for('web.login_page') }}">Use a different username</a>
       {% elif mode == "register" %}
         <input type="hidden" name="action" value="register">
         <label for="username">Username</label>
@@ -57,7 +57,7 @@
         <input id="email" name="email" type="email" autocomplete="email" value="{{ email }}">
         <p class="login-help">Email is only used so you can recover or get help with this account later. You can leave it blank.</p>
         <button type="submit">Create Account</button>
-        <a class="login-back-link" href="{{ url_for('web.index') }}">Use a different username</a>
+        <a class="login-back-link" href="{{ url_for('web.login_page') }}">Use a different username</a>
       {% endif %}
     </form>
 
