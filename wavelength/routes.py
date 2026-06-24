@@ -5,7 +5,7 @@ import math
 import secrets
 
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
-from sqlalchemy import cast, func, literal
+from sqlalchemy import cast, literal
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -490,7 +490,18 @@ def activity():
         abort(403)
 
     activity = activity_query()
-    total_rows = db.session.query(func.count()).select_from(activity).scalar() or 0
+    # Filtering happens before counting and paginating so each tab has its own
+    # accurate total and page range. Unknown query-string values safely fall
+    # back to the complete feed rather than producing an empty or broken view.
+    activity_type = request.args.get("type", "all").lower()
+    if activity_type not in {"all", "clue", "guess"}:
+        activity_type = "all"
+
+    filtered_activity = db.session.query(activity)
+    if activity_type != "all":
+        filtered_activity = filtered_activity.filter(activity.c.activity_type == activity_type)
+
+    total_rows = filtered_activity.count()
     page_count = max(1, math.ceil(total_rows / ACTIVITY_PAGE_SIZE))
 
     # Flask returns None for absent and non-integer typed query parameters. Both
@@ -503,7 +514,7 @@ def activity():
     # final stable tie-breaker after the requested timestamp-descending and
     # record-ID-descending ordering.
     rows = (
-        db.session.query(activity)
+        filtered_activity
         .order_by(
             activity.c.created_at.desc(),
             activity.c.record_id.desc(),
@@ -520,4 +531,5 @@ def activity():
         page=page,
         page_count=page_count,
         total_rows=total_rows,
+        activity_type=activity_type,
     )

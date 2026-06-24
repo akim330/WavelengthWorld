@@ -520,6 +520,10 @@ tr:last-child td { border-bottom: 0; }
   padding: 1rem clamp(1rem, 3vw, 2rem) 2rem;
 }
 .activity-panel { min-width: 0; }
+.activity-filters a.tab {
+  display: inline-block;
+  text-decoration: none;
+}
 .activity-pager {
   display: flex;
   align-items: center;

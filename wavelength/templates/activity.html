@@ -29,15 +29,21 @@
       <span class="pill">{{ total_rows }} total</span>
     </div>
 
+    <nav class="activity-filters tabs" aria-label="Filter activity">
+      <a class="tab{% if activity_type == 'all' %} active{% endif %}" href="{{ url_for('web.activity', type='all') }}" aria-current="{{ 'page' if activity_type == 'all' else 'false' }}">All</a>
+      <a class="tab{% if activity_type == 'clue' %} active{% endif %}" href="{{ url_for('web.activity', type='clue') }}" aria-current="{{ 'page' if activity_type == 'clue' else 'false' }}">Clues</a>
+      <a class="tab{% if activity_type == 'guess' %} active{% endif %}" href="{{ url_for('web.activity', type='guess') }}" aria-current="{{ 'page' if activity_type == 'guess' else 'false' }}">Guesses</a>
+    </nav>
+
     <nav class="activity-pager" aria-label="Activity pages">
       {% if page > 1 %}
-        <a class="secondary-link" href="{{ url_for('web.activity', page=page - 1) }}" rel="prev">Previous</a>
+        <a class="secondary-link" href="{{ url_for('web.activity', type=activity_type, page=page - 1) }}" rel="prev">Previous</a>
       {% else %}
         <span class="secondary-link disabled" aria-disabled="true">Previous</span>
       {% endif %}
       <span class="history-page-status">Page {{ page }} / {{ page_count }}</span>
       {% if page < page_count %}
-        <a class="secondary-link" href="{{ url_for('web.activity', page=page + 1) }}" rel="next">Next</a>
+        <a class="secondary-link" href="{{ url_for('web.activity', type=activity_type, page=page + 1) }}" rel="next">Next</a>
       {% else %}
         <span class="secondary-link disabled" aria-disabled="true">Next</span>
       {% endif %}
@@ -92,13 +98,13 @@
 
     <nav class="activity-pager activity-pager-bottom" aria-label="Activity pages">
       {% if page > 1 %}
-        <a class="secondary-link" href="{{ url_for('web.activity', page=page - 1) }}" rel="prev">Previous</a>
+        <a class="secondary-link" href="{{ url_for('web.activity', type=activity_type, page=page - 1) }}" rel="prev">Previous</a>
       {% else %}
         <span class="secondary-link disabled" aria-disabled="true">Previous</span>
       {% endif %}
       <span class="history-page-status">Page {{ page }} / {{ page_count }}</span>
       {% if page < page_count %}
-        <a class="secondary-link" href="{{ url_for('web.activity', page=page + 1) }}" rel="next">Next</a>
+        <a class="secondary-link" href="{{ url_for('web.activity', type=activity_type, page=page + 1) }}" rel="next">Next</a>
       {% else %}
         <span class="secondary-link disabled" aria-disabled="true">Next</span>
       {% endif %}
