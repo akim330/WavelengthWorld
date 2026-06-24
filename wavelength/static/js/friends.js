@@ -156,37 +156,37 @@
   }
 
   function renderClueComparisonGraphic(row) {
+    // Friend clue rows now compare the player's own opinion against their
+    // scored guess so the mini-graphic answers "what did I think?" versus
+    // "where did I predict the crowd would land?" at a glance.
     const arcHtml = window.WavelengthHistoryGraphics.renderHistoryArc({
-        bandCenter: row.current_global_average,
-        ariaLabel: 'Black pin shows friend target. Blue pin shows your guess. Red pin shows the global average centered in the scoring bands.',
+        ariaLabel: 'Blue pin shows your opinion. Purple pin shows your guess.',
         markers: [
-          { value: row.friend_target_position, className: 'history-marker-target' },
-          { value: row.your_predicted_average_position, className: 'history-marker-you' },
-          { value: row.current_global_average, className: 'history-marker-average' },
+          { value: row.your_personal_position, className: 'history-marker-you' },
+          { value: row.your_predicted_average_position, className: 'history-marker-friend' },
         ],
       });
     const legendHtml = renderLegend([
-        { className: 'history-legend-target', label: 'Friend target' },
-        { className: 'history-legend-you', label: 'Your guess' },
-        { className: 'history-legend-average', label: 'Global average' },
+        { className: 'history-legend-you', label: 'Your opinion' },
+        { className: 'history-legend-friend', label: 'Your guess' },
       ]);
     return renderComparisonDiagram(row, arcHtml, legendHtml);
   }
 
   function renderYourClueComparisonGraphic(row) {
+    // Player clue rows mirror the same comparison from the friend's point of
+    // view so both tabs use a consistent color language: blue for opinion and
+    // purple for the scored average-opinion guess.
     const arcHtml = window.WavelengthHistoryGraphics.renderHistoryArc({
-        bandCenter: row.current_global_average,
-        ariaLabel: 'Black pin shows your target. Purple pin shows your friend guess. Red pin shows the global average centered in the scoring bands.',
+        ariaLabel: 'Blue pin shows your friend opinion. Purple pin shows your friend guess.',
         markers: [
-          { value: row.your_target_position, className: 'history-marker-target' },
+          { value: row.friend_personal_position, className: 'history-marker-you' },
           { value: row.friend_predicted_average_position, className: 'history-marker-friend' },
-          { value: row.current_global_average, className: 'history-marker-average' },
         ],
       });
     const legendHtml = renderLegend([
-        { className: 'history-legend-target', label: 'Your target' },
+        { className: 'history-legend-you', label: 'Friend opinion' },
         { className: 'history-legend-friend', label: 'Friend guess' },
-        { className: 'history-legend-average', label: 'Global average' },
       ]);
     return renderComparisonDiagram(row, arcHtml, legendHtml);
   }
@@ -222,7 +222,7 @@
     }
 
     $('friendClues').innerHTML = `
-      <p class="history-description muted">Friend clues show clues your friend wrote that you answered, with your scored prediction shown against their target.</p>
+      <p class="history-description muted">Friend clues show clues your friend wrote that you answered, comparing your personal opinion with your scored guess.</p>
       <table>
         <thead><tr>
           <th>Date</th><th>Clue</th><th>Comparison</th><th class="numeric">N</th>
@@ -246,7 +246,7 @@
     }
 
     $('yourClues').innerHTML = `
-      <p class="history-description muted">Your clues show clues you wrote that your friend answered, with their scored prediction shown against your target.</p>
+      <p class="history-description muted">Your clues show clues you wrote that your friend answered, comparing their personal opinion with their scored guess.</p>
       <table>
         <thead><tr>
           <th>Date</th><th>Clue</th><th>Comparison</th><th class="numeric">N</th>

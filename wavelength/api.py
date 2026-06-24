@@ -625,9 +625,12 @@ def friend_comparison(friend_id: int):
                 "spectrum": clue.spectrum.label,
                 **serialize_spectrum_poles(clue.spectrum),
                 "clue_text": clue.text,
-                "friend_target_position": round(clue.target_position, 2),
+                # Friend-written clue rows need both the player's personal
+                # opinion and their scored average-opinion guess so the friends
+                # page can compare those two actions directly instead of
+                # showing the author target/global average markers.
+                "your_personal_position": round(guess.personal_position, 2),
                 "your_predicted_average_position": round(guess.predicted_average_position, 2),
-                "current_global_average": round_or_none(result.global_average),
                 "guess_count": result.guess_count,
                 "status": result.status,
             }
@@ -657,9 +660,12 @@ def friend_comparison(friend_id: int):
                 "spectrum": clue.spectrum.label,
                 **serialize_spectrum_poles(clue.spectrum),
                 "clue_text": clue.text,
-                "your_target_position": round(clue.target_position, 2),
+                # Player-written clue rows need the friend's personal opinion
+                # alongside their scored guess so the comparison graphic can
+                # show how that friend felt versus where they predicted the
+                # crowd average would land.
+                "friend_personal_position": round(guess.personal_position, 2),
                 "friend_predicted_average_position": round(guess.predicted_average_position, 2),
-                "current_global_average": round_or_none(result.global_average),
                 "guess_count": result.guess_count,
                 "status": result.status,
             }

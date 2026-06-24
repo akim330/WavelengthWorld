@@ -327,6 +327,10 @@
     if (!rows.length) {
       return `<div class="empty">No eligible ${data.role} leaderboard entries yet. Minimum scored entries: ${data.minimum_scored_entries}.</div>`;
     }
+    // Leaderboard averages should always render with exactly two decimal places
+    // so the UI stays consistent across whole numbers, tenths, and hundredths.
+    // The API still sends a numeric value for sorting/ranking, and this display
+    // formatting layer is responsible for padding values like 1.9 to 1.90.
     return `
       <table>
         <thead>
@@ -339,7 +343,7 @@
             <tr>
               <td>${row.rank}</td>
               <td>${escapeHtml(row.username)}</td>
-              <td class="numeric">${row.average_score}</td>
+              <td class="numeric">${Number(row.average_score).toFixed(2)}</td>
               <td class="numeric">${row.scored_entries}</td>
             </tr>`).join('')}
         </tbody>
