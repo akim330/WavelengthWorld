@@ -33,7 +33,7 @@ def csrf_guard():
 def score_payload(result):
     return {
         "score_status": result.status,
-        "guess_count": result.guess_count,
+        "opinion_count": result.opinion_count,
         "global_average": round_or_none(result.global_average),
         "distance": round_or_none(result.distance),
         "score": result.score,
@@ -205,7 +205,7 @@ def submit_guess():
     result = score_guess(guess)
     payload = {"status": "ok", "guess_id": guess.id, **score_payload(result)}
     if result.status == "pending":
-        payload["message"] = f"Submitted. Score will appear after {current_app.config['MIN_GUESSES_FOR_SCORE']} total guesses."
+        payload["message"] = f"Submitted. Score will appear after {current_app.config['MIN_OPINIONS_FOR_SCORE']} total opinions."
     return jsonify(payload)
 
 
@@ -260,7 +260,10 @@ def submit_clue():
     result = score_clue(clue)
     payload = {"status": "ok", "clue_id": clue.id, **score_payload(result)}
     if result.status == "pending":
-        payload["message"] = f"Clue submitted. It will be scored after {current_app.config['MIN_GUESSES_FOR_SCORE']} people guess it."
+        payload["message"] = (
+            f"Clue submitted. It will be scored after "
+            f"{current_app.config['MIN_OPINIONS_FOR_SCORE']} total opinions."
+        )
     return jsonify(payload)
 
 
@@ -596,7 +599,7 @@ def friend_comparison(friend_id: int):
                 "your_predicted_average_position": round(guess.predicted_average_position, 2),
                 "friend_predicted_average_position": round(friend_guess.predicted_average_position, 2),
                 "current_global_average": round_or_none(result.global_average),
-                "guess_count": result.guess_count,
+                "opinion_count": result.opinion_count,
                 "status": result.status,
             }
         )
@@ -633,7 +636,7 @@ def friend_comparison(friend_id: int):
                 "your_personal_position": round(guess.personal_position, 2),
                 "your_predicted_average_position": round(guess.predicted_average_position, 2),
                 "current_global_average": round_or_none(result.global_average),
-                "guess_count": result.guess_count,
+                "opinion_count": result.opinion_count,
                 "status": result.status,
             }
         )
@@ -669,7 +672,7 @@ def friend_comparison(friend_id: int):
                 "friend_personal_position": round(guess.personal_position, 2),
                 "friend_predicted_average_position": round(guess.predicted_average_position, 2),
                 "current_global_average": round_or_none(result.global_average),
-                "guess_count": result.guess_count,
+                "opinion_count": result.opinion_count,
                 "status": result.status,
             }
         )
@@ -705,7 +708,7 @@ def history():
                 "personal_position": round(guess.personal_position, 2),
                 "predicted_average_position": round(guess.predicted_average_position, 2),
                 "current_global_average": round_or_none(result.global_average),
-                "guess_count": result.guess_count,
+                "opinion_count": result.opinion_count,
                 "distance": round_or_none(result.distance),
                 "score": result.score,
                 "status": result.status,
@@ -732,7 +735,7 @@ def history():
                 "clue_text": clue.text,
                 "target_position": round(clue.target_position, 2),
                 "current_global_average": round_or_none(result.global_average),
-                "guess_count": result.guess_count,
+                "opinion_count": result.opinion_count,
                 "distance": round_or_none(result.distance),
                 "score": result.score,
                 "status": result.status,
@@ -753,6 +756,6 @@ def stats():
             "spectrums": Spectrum.query.filter_by(is_active=True).count(),
             "clues": Clue.query.join(Spectrum).filter(Clue.is_active.is_(True), Spectrum.is_active.is_(True)).count(),
             "guesses": Guess.query.count(),
-            "min_guesses_for_score": current_app.config["MIN_GUESSES_FOR_SCORE"],
+            "min_opinions_for_score": current_app.config["MIN_OPINIONS_FOR_SCORE"],
         }
     )

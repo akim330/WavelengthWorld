@@ -211,7 +211,7 @@
       <p class="history-description muted">Shared guesses compare each player&apos;s scored prediction for clues both of you answered.</p>
       <table>
         <thead><tr>
-          <th>Date</th><th>Clue</th><th>Comparison</th><th class="numeric">N</th>
+          <th>Date</th><th>Clue</th><th>Comparison</th><th class="numeric">Opinions (N)</th>
         </tr></thead>
         <tbody>
           ${rows.map(row => `
@@ -219,7 +219,7 @@
               <td>${formatDate(row.created_at)}</td>
               <td>${escapeHtml(row.clue_text)}</td>
               <td class="history-arc-cell">${renderGuessComparisonGraphic(row)}</td>
-              <td class="numeric">${row.guess_count}</td>
+              <td class="numeric">${row.opinion_count}</td>
             </tr>`).join('')}
         </tbody>
       </table>`;
@@ -235,7 +235,7 @@
       <p class="history-description muted">Friend clues show clues your friend wrote that you answered, comparing your personal opinion with your scored guess.</p>
       <table>
         <thead><tr>
-          <th>Date</th><th>Clue</th><th>Comparison</th><th class="numeric">N</th>
+          <th>Date</th><th>Clue</th><th>Comparison</th><th class="numeric">Opinions (N)</th>
         </tr></thead>
         <tbody>
           ${rows.map(row => `
@@ -243,7 +243,7 @@
               <td>${formatDate(row.created_at)}</td>
               <td>${escapeHtml(row.clue_text)}</td>
               <td class="history-arc-cell">${renderClueComparisonGraphic(row)}</td>
-              <td class="numeric">${row.guess_count}</td>
+              <td class="numeric">${row.opinion_count}</td>
             </tr>`).join('')}
         </tbody>
       </table>`;
@@ -259,7 +259,7 @@
       <p class="history-description muted">Your clues show clues you wrote that your friend answered, comparing their personal opinion with their scored guess.</p>
       <table>
         <thead><tr>
-          <th>Date</th><th>Clue</th><th>Comparison</th><th class="numeric">N</th>
+          <th>Date</th><th>Clue</th><th>Comparison</th><th class="numeric">Opinions (N)</th>
         </tr></thead>
         <tbody>
           ${rows.map(row => `
@@ -267,7 +267,7 @@
               <td>${formatDate(row.created_at)}</td>
               <td>${escapeHtml(row.clue_text)}</td>
               <td class="history-arc-cell">${renderYourClueComparisonGraphic(row)}</td>
-              <td class="numeric">${row.guess_count}</td>
+              <td class="numeric">${row.opinion_count}</td>
             </tr>`).join('')}
         </tbody>
       </table>`;

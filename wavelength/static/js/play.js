@@ -65,13 +65,13 @@
 
   function scoreHtml(payload) {
     if (payload.score_status === 'pending') {
-      return `<strong>Pending</strong><br>${payload.message || `Needs more guesses. Current guesses: ${payload.guess_count}`}`;
+      return `<strong>Pending</strong><br>${payload.message || `Needs more opinions. Current opinions: ${payload.opinion_count}`}`;
     }
     return [
       `<strong>${payload.score} / 4 points</strong>`,
       `Global average: ${payload.global_average}`,
       `Distance: ${payload.distance}`,
-      `Total guesses: ${payload.guess_count}`,
+      `Total opinions: ${payload.opinion_count}`,
     ].join('<br>');
   }
 
@@ -104,8 +104,8 @@
       result.innerHTML = `
         <div class="guess-result-pending">
           <strong>Score pending</strong>
-          <p>${escapeHtml(data.message || `This clue needs more guesses before it can be scored.`)}</p>
-          <p class="muted">${data.guess_count} guess${data.guess_count === 1 ? '' : 'es'} so far on this clue.</p>
+          <p>${escapeHtml(data.message || `This clue needs more opinions before it can be scored.`)}</p>
+          <p class="muted">${data.opinion_count} opinion${data.opinion_count === 1 ? '' : 's'} so far on this clue.</p>
         </div>
         <button id="guessResultPlayAnotherBtn" type="button" class="guess-result-next">Play another</button>
       `;
@@ -113,7 +113,7 @@
       result.innerHTML = `
         <div class="guess-result-score">${data.score} / 4 points</div>
         <div class="guess-result-arc">${renderGuessSubmissionGraphic(personalPosition, predictedAverage, data.global_average)}</div>
-        <p class="guess-result-meta">N = ${data.guess_count}</p>
+        <p class="guess-result-meta">N = ${data.opinion_count}</p>
         <button id="guessResultPlayAnotherBtn" type="button" class="guess-result-next">Play another</button>
       `;
     }
@@ -445,7 +445,7 @@
   }
 
   function statusText(item) {
-    if (item.status === 'pending') return `<span class="status-pending">Pending (${item.guess_count}/3)</span>`;
+    if (item.status === 'pending') return `<span class="status-pending">Pending (${item.opinion_count}/2)</span>`;
     return `<span class="status-scored">${item.score}/4</span>`;
   }
 
@@ -494,8 +494,9 @@
   function renderClueHistoryGraphic(row) {
     // Clue history compares two different meanings on the same dial: the target
     // the cluer was asked to hit and the current global average produced by the
-    // guessers. Its scoring bands are centered on the current global average so
-    // the visual scoring frame matches guess history and friend comparisons.
+    // original target plus player opinions. Its scoring bands are centered on
+    // the current global average so the visual scoring frame matches guess
+    // history and friend comparisons.
     const arcHtml = window.WavelengthHistoryGraphics.renderHistoryArc({
         bandCenter: row.current_global_average,
         ariaLabel: 'Black pin shows the true target. Red pin shows the current global average opinion. Bands are centered on the global average.',
@@ -512,11 +513,11 @@
   }
 
   function renderClueHistoryResult(row) {
-    // Clue scoring bands only make sense after enough people have guessed and a
-    // global average exists. While a clue is pending, hide the dial entirely so
-    // players do not see bands that imply a score has already been calculated.
+    // Clue scoring bands only make sense after enough total opinions exist.
+    // While a clue is pending, hide the dial entirely so players do not see
+    // bands that imply a score has already been calculated.
     if (row.status === 'pending') {
-      return `<div class="history-pending-note">Waiting for more guesses before showing the target comparison.</div>`;
+      return `<div class="history-pending-note">Waiting for another opinion before showing the target comparison.</div>`;
     }
 
     return renderClueHistoryGraphic(row);
@@ -530,7 +531,7 @@
       return '<p class="history-description muted">Past guesses score higher when your average-opinion guess lands closer to the global average opinion for that clue.</p>';
     }
 
-    return "<p class=\"history-description muted\">Past clues score higher when the global average of other people's guesses lands closer to the target you were given for your clue.</p>";
+    return "<p class=\"history-description muted\">Past clues score higher when the evolving average of the original target and player opinions stays close to the target you were given.</p>";
   }
 
   function renderHistoryTable(kind, tableHtml) {
@@ -657,7 +658,7 @@
 
   async function loadStats() {
     const stats = await apiFetch('/api/stats');
-    $('siteStats').textContent = `${stats.users} users · ${stats.clues} clues · ${stats.guesses} guesses · scores need ${stats.min_guesses_for_score} guesses`;
+    $('siteStats').textContent = `${stats.users} users · ${stats.clues} clues · ${stats.guesses} guesses · scores need ${stats.min_opinions_for_score} opinions`;
   }
 
   function escapeHtml(value) {

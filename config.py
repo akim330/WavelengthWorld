@@ -68,7 +68,10 @@ class Config:
     SQLALCHEMY_DATABASE_URI = _database_url_from_environment()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    MIN_GUESSES_FOR_SCORE = 3
+    # Every clue's original target is treated as the first opinion in its
+    # evolving average. Requiring two total opinions therefore lets the first
+    # player response produce a score immediately.
+    MIN_OPINIONS_FOR_SCORE = 2
     DAILY_LEADERBOARD_MIN_ENTRIES = 0
     WEEKLY_LEADERBOARD_MIN_ENTRIES = 5
     ALL_TIME_LEADERBOARD_MIN_ENTRIES = 10
