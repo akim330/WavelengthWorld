@@ -33,6 +33,9 @@ class User(db.Model):
     # Tracking when a password was first attached lets the login flow distinguish
     # legacy passwordless users from normal password-authenticated users.
     password_set_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    # The most recent successful reset-email send time enforces a small per-user
+    # cooldown without storing reset tokens or introducing a separate token table.
+    password_reset_sent_at = db.Column(db.DateTime(timezone=True), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
     last_seen_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utcnow)
     # Players may still submit guesses and clues while hidden from public

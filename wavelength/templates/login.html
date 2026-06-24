@@ -29,6 +29,7 @@
         <input id="username" name="username" type="text" autocomplete="username" required maxlength="80" value="{{ username }}" readonly>
         <label for="password">Password</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+        <a class="login-back-link" href="{{ url_for('web.forgot_password', username=username) }}">Forgot password?</a>
         <button type="submit">Log In</button>
         <a class="login-back-link" href="{{ url_for('web.login_page') }}">Use a different username</a>
       {% elif mode == "claim" %}

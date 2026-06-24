@@ -67,6 +67,16 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-change-me")
     SQLALCHEMY_DATABASE_URI = _database_url_from_environment()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # Password recovery uses Resend's HTTPS API and signed links back to the
+    # public site. Keeping these values environment-driven lets local development
+    # leave email disabled while hosted deployments provide real credentials.
+    RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+    RESEND_FROM_EMAIL = os.environ.get(
+        "RESEND_FROM_EMAIL",
+        "Wavelength World <accounts@wavelengthworld.app>",
+    )
+    SITE_BASE_URL = os.environ.get("SITE_BASE_URL", "https://wavelengthworld.app").rstrip("/")
+    PASSWORD_RESET_MAX_AGE_SECONDS = int(os.environ.get("PASSWORD_RESET_MAX_AGE_SECONDS", "1800"))
 
     # Every clue's original target is treated as the first opinion in its
     # evolving average. Requiring two total opinions therefore lets the first

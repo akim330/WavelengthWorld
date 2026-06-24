@@ -27,6 +27,8 @@ def ensure_user_columns():
             connection.execute(text("ALTER TABLE users ADD COLUMN is_guest BOOLEAN NOT NULL DEFAULT FALSE"))
         if "password_set_at" not in user_columns:
             connection.execute(text("ALTER TABLE users ADD COLUMN password_set_at TIMESTAMP"))
+        if "password_reset_sent_at" not in user_columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN password_reset_sent_at TIMESTAMP"))
 
         # Existing databases cannot receive the model-level unique constraint via
         # create_all(), so create the same nullable unique lookup index manually.

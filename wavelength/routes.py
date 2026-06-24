@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from html import escape
+import hashlib
+import hmac
+import json
 import math
 import secrets
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import cast, literal
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from . import db
@@ -19,6 +26,8 @@ web_bp = Blueprint("web", __name__)
 MIN_PASSWORD_LENGTH = 8
 SITE_BASE_URL = "https://wavelengthworld.app"
 ACTIVITY_PAGE_SIZE = 50
+PASSWORD_RESET_SALT = "wavelength-password-reset"
+PASSWORD_RESET_COOLDOWN_SECONDS = 60
 
 
 @web_bp.context_processor
@@ -67,6 +76,151 @@ def validate_password_pair(password: str, password_confirm: str) -> str | None:
     return None
 
 
+def password_reset_serializer() -> URLSafeTimedSerializer:
+    # A dedicated salt prevents reset tokens from being accepted by any other
+    # serializer that may also use the Flask SECRET_KEY elsewhere in the app.
+    return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt=PASSWORD_RESET_SALT)
+
+
+def forgot_password_template(username: str = "", sent_email: str | None = None):
+    # Keep the displayed lifetime synchronized with configuration so deployments
+    # can adjust token expiry without leaving stale explanatory copy in the page.
+    expiry_minutes = max(1, int(current_app.config["PASSWORD_RESET_MAX_AGE_SECONDS"]) // 60)
+    return render_template(
+        "forgot_password.html",
+        username=username,
+        sent_email=sent_email,
+        reset_expiry_minutes=expiry_minutes,
+    )
+
+
+def password_hash_fingerprint(password_hash: str) -> str:
+    # The signed payload contains only a one-way fingerprint of the stored hash.
+    # Changing the password changes this value and invalidates every older link.
+    return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()
+
+
+def create_password_reset_token(user: User) -> str:
+    if not user.password_hash:
+        current_app.logger.error("Tried to create a password reset token for user %s without a password.", user.id)
+        raise ValueError("User does not have a password.")
+    return password_reset_serializer().dumps(
+        {
+            "user_id": user.id,
+            "password_fingerprint": password_hash_fingerprint(user.password_hash),
+        }
+    )
+
+
+def load_password_reset_user(token: str) -> tuple[User | None, str | None]:
+    # SignatureExpired is handled separately so the page can explain whether the
+    # link timed out or is simply malformed without exposing token internals.
+    try:
+        payload = password_reset_serializer().loads(
+            token,
+            max_age=int(current_app.config["PASSWORD_RESET_MAX_AGE_SECONDS"]),
+        )
+    except SignatureExpired:
+        return None, "This password reset link has expired. Request a new one."
+    except BadSignature:
+        return None, "This password reset link is invalid. Request a new one."
+
+    if not isinstance(payload, dict):
+        current_app.logger.error("Password reset token decoded to an unexpected payload type.")
+        return None, "This password reset link is invalid. Request a new one."
+
+    user_id = payload.get("user_id")
+    fingerprint = payload.get("password_fingerprint")
+    if not isinstance(user_id, int) or not isinstance(fingerprint, str):
+        current_app.logger.error("Password reset token decoded without the required fields.")
+        return None, "This password reset link is invalid. Request a new one."
+
+    user = User.query.get(user_id)
+    if user is None or user.is_guest or not user.password_hash:
+        return None, "This password reset link is no longer valid. Request a new one."
+
+    current_fingerprint = password_hash_fingerprint(user.password_hash)
+    if not hmac.compare_digest(fingerprint, current_fingerprint):
+        return None, "This password reset link has already been used or replaced."
+    return user, None
+
+
+def mask_email(email: str) -> str:
+    # The confirmation proves where the message was sent without echoing the full
+    # recovery address to someone who only knows the account's username.
+    local_part, separator, domain = email.partition("@")
+    if not separator:
+        current_app.logger.error("Stored recovery email for masking did not contain @.")
+        return "the recovery email on this account"
+    visible_local = local_part[:1]
+    masked_local = visible_local + ("*" * max(3, len(local_part) - 1))
+    return f"{masked_local}@{domain}"
+
+
+def as_utc(value: datetime) -> datetime:
+    # SQLite may return a naive datetime even for timezone-aware columns. Treat
+    # those stored values as UTC so cooldown calculations behave consistently.
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def send_password_reset_email(user: User, reset_url: str) -> bool:
+    api_key = str(current_app.config.get("RESEND_API_KEY", "")).strip()
+    from_email = str(current_app.config.get("RESEND_FROM_EMAIL", "")).strip()
+    if not api_key or not from_email:
+        current_app.logger.error("Password reset email requested but Resend is not configured.")
+        return False
+    if not user.email:
+        current_app.logger.error("Password reset email send reached user %s without a recovery email.", user.id)
+        return False
+
+    # Both message formats contain the same short-lived link. User-controlled
+    # values are escaped before entering HTML, and neither tokens nor URLs are
+    # written to logs if the provider request fails.
+    username_html = escape(user.username_display)
+    reset_url_html = escape(reset_url, quote=True)
+    max_age_minutes = max(1, int(current_app.config["PASSWORD_RESET_MAX_AGE_SECONDS"]) // 60)
+    payload = {
+        "from": from_email,
+        "to": [user.email],
+        "subject": "Reset your Wavelength World password",
+        "text": (
+            f"Hi {user.username_display},\n\n"
+            f"Use this link to reset your Wavelength World password:\n{reset_url}\n\n"
+            f"This link expires in {max_age_minutes} minutes. If you did not request it, you can ignore this email."
+        ),
+        "html": (
+            f"<p>Hi {username_html},</p>"
+            f"<p><a href=\"{reset_url_html}\">Reset your Wavelength World password</a>.</p>"
+            f"<p>This link expires in {max_age_minutes} minutes. "
+            "If you did not request it, you can ignore this email.</p>"
+        ),
+    }
+    resend_request = Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(resend_request, timeout=10) as response:
+            if response.status < 200 or response.status >= 300:
+                current_app.logger.error("Resend returned unexpected status %s for password recovery.", response.status)
+                return False
+    except HTTPError as error:
+        current_app.logger.error("Resend rejected a password recovery email with status %s.", error.code)
+        return False
+    except (URLError, TimeoutError, OSError) as error:
+        current_app.logger.error("Password recovery email delivery failed: %s.", type(error).__name__)
+        return False
+    return True
+
+
 def normalize_optional_email(email_display: str) -> tuple[str | None, str | None, str | None]:
     # Email is stored only for future/manual recovery, so the validation is just
     # enough to avoid obviously unusable values while keeping the field optional.
@@ -111,6 +265,129 @@ def login_page():
     return login_template()
 
 
+@web_bp.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "GET":
+        return forgot_password_template(username=request.args.get("username", "").strip())
+
+    username_display = request.form.get("username", "").strip()
+    username_normalized, error = validate_username(username_display)
+    if error:
+        flash(error, "error")
+        return forgot_password_template(username=username_display)
+
+    user = User.query.filter_by(username_normalized=username_normalized).first()
+    if user is None:
+        flash("No account was found with that username.", "error")
+        return forgot_password_template(username=username_display)
+    if user.is_guest or not user.email:
+        flash(
+            "This account does not have a recovery email, so its password cannot be recovered.",
+            "error",
+        )
+        return forgot_password_template(username=user.username_display)
+    if not user.password_hash:
+        flash("This account has not set a password yet. Return to login to create one.", "error")
+        return forgot_password_template(username=user.username_display)
+
+    now = datetime.now(timezone.utc)
+    if user.password_reset_sent_at is not None:
+        seconds_since_send = (now - as_utc(user.password_reset_sent_at)).total_seconds()
+        if seconds_since_send < PASSWORD_RESET_COOLDOWN_SECONDS:
+            return forgot_password_template(
+                username=user.username_display,
+                sent_email=mask_email(user.email),
+            )
+
+    try:
+        token = create_password_reset_token(user)
+    except ValueError:
+        flash("This account cannot reset its password. Return to login and try again.", "error")
+        return forgot_password_template(username=user.username_display)
+
+    reset_path = url_for("web.reset_password", token=token)
+    reset_url = f"{current_app.config['SITE_BASE_URL']}{reset_path}"
+    if not send_password_reset_email(user, reset_url):
+        flash("The reset email could not be sent right now. Please try again later.", "error")
+        return forgot_password_template(username=user.username_display)
+
+    user.password_reset_sent_at = now
+    try:
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        # The email was already accepted by Resend, so the player should still
+        # receive a success response. Logging preserves visibility into the lost
+        # cooldown timestamp without leaking the reset link.
+        current_app.logger.error("Could not store password reset send time for user %s.", user.id)
+
+    return forgot_password_template(
+        username=user.username_display,
+        sent_email=mask_email(user.email),
+    )
+
+
+@web_bp.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token: str):
+    user, token_error = load_password_reset_user(token)
+    if token_error:
+        return render_template("reset_password.html", token_valid=False, token_error=token_error, token=token)
+    if user is None:
+        current_app.logger.error("Password reset token validation returned no user and no error.")
+        return render_template(
+            "reset_password.html",
+            token_valid=False,
+            token_error="This password reset link is invalid. Request a new one.",
+            token=token,
+        )
+
+    if request.method == "GET":
+        return render_template(
+            "reset_password.html",
+            token_valid=True,
+            token_error=None,
+            token=token,
+            username=user.username_display,
+        )
+
+    password = request.form.get("password", "")
+    password_confirm = request.form.get("password_confirm", "")
+    password_error = validate_password_pair(password, password_confirm)
+    if password_error:
+        flash(password_error, "error")
+        return render_template(
+            "reset_password.html",
+            token_valid=True,
+            token_error=None,
+            token=token,
+            username=user.username_display,
+        )
+
+    now = datetime.now(timezone.utc)
+    user.password_hash = generate_password_hash(password)
+    user.password_set_at = now
+    user.password_reset_sent_at = None
+    try:
+        db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        current_app.logger.error("Could not persist a password reset for user %s.", user.id)
+        flash("Your password could not be reset right now. Please try again.", "error")
+        return render_template(
+            "reset_password.html",
+            token_valid=True,
+            token_error=None,
+            token=token,
+            username=user.username_display,
+        )
+
+    # A reset link may be opened while another account is logged in on the same
+    # browser. Clearing the session avoids leaving that unrelated identity active.
+    session.clear()
+    flash("Your password has been reset. Log in with your new password.", "success")
+    return redirect(url_for("web.login_page"))
+
+
 @web_bp.get("/how-to-play")
 def how_to_play():
     return render_template("how_to_play.html")
@@ -147,6 +424,8 @@ def robots_txt():
             "Disallow: /activity",
             "Disallow: /api",
             "Disallow: /login",
+            "Disallow: /forgot-password",
+            "Disallow: /reset-password",
             f"Sitemap: {SITE_BASE_URL}/sitemap.xml",
             "",
         ]
