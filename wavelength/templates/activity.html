@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Activity · Wavelength World{% endblock %}
+{% block body %}
+<header class="app-header">
+  <div>
+    <h1>Wavelength World</h1>
+    <p class="muted">Logged in as <strong>{{ session.username }}</strong></p>
+  </div>
+  <div class="header-actions">
+    <nav class="app-nav" aria-label="Primary">
+      <a href="{{ url_for('web.play') }}">Play</a>
+      <a href="{{ url_for('web.friends') }}" data-friend-nav-link>Friends</a>
+      <a class="active" href="{{ url_for('web.activity') }}">Activity</a>
+    </nav>
+    <form action="{{ url_for('web.logout') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="secondary">Logout</button>
+    </form>
+  </div>
+</header>
+
+<main class="activity-shell">
+  <section class="panel activity-panel">
+    <div class="panel-header">
+      <div>
+        <h2>Activity</h2>
+        <p class="muted">All player guesses and clues, from most recent to oldest.</p>
+      </div>
+      <span class="pill">{{ total_rows }} total</span>
+    </div>
+
+    <nav class="activity-pager" aria-label="Activity pages">
+      {% if page > 1 %}
+        <a class="secondary-link" href="{{ url_for('web.activity', page=page - 1) }}" rel="prev">Previous</a>
+      {% else %}
+        <span class="secondary-link disabled" aria-disabled="true">Previous</span>
+      {% endif %}
+      <span class="history-page-status">Page {{ page }} / {{ page_count }}</span>
+      {% if page < page_count %}
+        <a class="secondary-link" href="{{ url_for('web.activity', page=page + 1) }}" rel="next">Next</a>
+      {% else %}
+        <span class="secondary-link disabled" aria-disabled="true">Next</span>
+      {% endif %}
+    </nav>
+
+    {% if activity_rows %}
+      <div class="history-table-wrap activity-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Time</th>
+              <th>Player</th>
+              <th>Spectrum</th>
+              <th>Clue</th>
+              <th>Positions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in activity_rows %}
+              <tr>
+                <td><span class="activity-type activity-type-{{ row.activity_type }}">{{ row.activity_type|title }}</span></td>
+                <td class="activity-time" data-utc-timestamp="{{ row.created_at_iso }}">
+                  {{ row.created_at_iso or 'Missing timestamp' }}
+                </td>
+                <td>
+                  <strong>{{ row.username }}</strong>
+                  {% if row.is_guest %}<span class="activity-guest-label">Guest</span>{% endif %}
+                </td>
+                <td>
+                  <span class="activity-spectrum-label">{{ row.spectrum_left_label }}</span>
+                  <span class="muted">to</span>
+                  <span class="activity-spectrum-label">{{ row.spectrum_right_label }}</span>
+                </td>
+                <td>{{ row.clue_text }}</td>
+                <td class="activity-positions">
+                  {% if row.activity_type == "guess" %}
+                    <span><strong>Personal:</strong> {{ "%.2f"|format(row.personal_position) }}</span>
+                    <span><strong>Predicted average:</strong> {{ "%.2f"|format(row.predicted_average_position) }}</span>
+                  {% else %}
+                    <span><strong>Target:</strong> {{ "%.2f"|format(row.target_position) }}</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty">No player activity yet.</div>
+    {% endif %}
+
+    <nav class="activity-pager activity-pager-bottom" aria-label="Activity pages">
+      {% if page > 1 %}
+        <a class="secondary-link" href="{{ url_for('web.activity', page=page - 1) }}" rel="prev">Previous</a>
+      {% else %}
+        <span class="secondary-link disabled" aria-disabled="true">Previous</span>
+      {% endif %}
+      <span class="history-page-status">Page {{ page }} / {{ page_count }}</span>
+      {% if page < page_count %}
+        <a class="secondary-link" href="{{ url_for('web.activity', page=page + 1) }}" rel="next">Next</a>
+      {% else %}
+        <span class="secondary-link disabled" aria-disabled="true">Next</span>
+      {% endif %}
+    </nav>
+  </section>
+</main>
+
+<script src="{{ url_for('static', filename='js/friend_notifications.js') }}"></script>
+<script src="{{ url_for('static', filename='js/activity.js') }}"></script>
+{% endblock %}

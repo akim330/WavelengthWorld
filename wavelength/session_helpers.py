@@ -9,6 +9,14 @@ from flask import jsonify, redirect, request, session, url_for
 from .models import User
 
 F = TypeVar("F", bound=Callable)
+ADMIN_USERNAME_NORMALIZED = "adk"
+
+
+def is_admin_user(user: User | None) -> bool:
+    # Admin authorization must come from the normalized username stored on the
+    # database user. Session display text is intentionally not trusted because
+    # it can be stale and preserves whichever capitalization the player entered.
+    return user is not None and user.username_normalized == ADMIN_USERNAME_NORMALIZED
 
 
 def current_user() -> User | None:

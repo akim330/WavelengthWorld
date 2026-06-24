@@ -10,6 +10,9 @@
     <nav class="app-nav" aria-label="Primary">
       <a href="{{ url_for('web.play') }}">Play</a>
       <a class="active" href="{{ url_for('web.friends') }}" data-friend-nav-link>Friends</a>
+      {% if is_admin %}
+        <a href="{{ url_for('web.activity') }}">Activity</a>
+      {% endif %}
     </nav>
     <form action="{{ url_for('web.logout') }}" method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -1,26 +1,31 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import math
 import secrets
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
+from sqlalchemy import cast, func, literal
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from . import db
-from .models import User
+from .models import Clue, Guess, Spectrum, User
 from .moderation import normalize_username
-from .session_helpers import current_user, get_csrf_token, login_required, validate_csrf
+from .session_helpers import current_user, get_csrf_token, is_admin_user, login_required, validate_csrf
 
 web_bp = Blueprint("web", __name__)
 
 MIN_PASSWORD_LENGTH = 8
 SITE_BASE_URL = "https://wavelengthworld.app"
+ACTIVITY_PAGE_SIZE = 50
 
 
 @web_bp.context_processor
 def inject_globals():
-    return {"csrf_token": get_csrf_token}
+    # Exposing only the boolean keeps templates from duplicating or weakening
+    # the database-backed ADK authorization rule used by the Activity route.
+    return {"csrf_token": get_csrf_token, "is_admin": is_admin_user(current_user())}
 
 
 @web_bp.before_request
@@ -139,6 +144,7 @@ def robots_txt():
             "Allow: /",
             "Disallow: /play",
             "Disallow: /friends",
+            "Disallow: /activity",
             "Disallow: /api",
             "Disallow: /login",
             f"Sitemap: {SITE_BASE_URL}/sitemap.xml",
@@ -367,3 +373,151 @@ def friends():
         flash("Guests cannot use friends. Create an account if you want social features.", "error")
         return redirect(url_for("web.play"))
     return render_template("friends.html")
+
+
+def activity_query():
+    # Guesses and player-created clues live in separate tables, so the Activity
+    # feed projects them into one shared row shape before sorting and paginating.
+    # Outer joins deliberately preserve damaged historical rows long enough for
+    # the renderer to report their missing relationships instead of silently
+    # dropping activity from the admin audit view.
+    guess_activity = (
+        db.session.query(
+            Guess.id.label("record_id"),
+            literal("guess").label("activity_type"),
+            Guess.created_at.label("created_at"),
+            User.id.label("user_id"),
+            User.username_display.label("username"),
+            User.is_guest.label("is_guest"),
+            Clue.id.label("clue_id"),
+            Spectrum.id.label("spectrum_id"),
+            Spectrum.left_label.label("spectrum_left_label"),
+            Spectrum.right_label.label("spectrum_right_label"),
+            Clue.text.label("clue_text"),
+            Guess.personal_position.label("personal_position"),
+            Guess.predicted_average_position.label("predicted_average_position"),
+            cast(literal(None), db.Float).label("target_position"),
+        )
+        .select_from(Guess)
+        .outerjoin(User, Guess.user_id == User.id)
+        .outerjoin(Clue, Guess.clue_id == Clue.id)
+        .outerjoin(Spectrum, Clue.spectrum_id == Spectrum.id)
+    )
+    clue_activity = (
+        db.session.query(
+            Clue.id.label("record_id"),
+            literal("clue").label("activity_type"),
+            Clue.created_at.label("created_at"),
+            User.id.label("user_id"),
+            User.username_display.label("username"),
+            User.is_guest.label("is_guest"),
+            Clue.id.label("clue_id"),
+            Spectrum.id.label("spectrum_id"),
+            Spectrum.left_label.label("spectrum_left_label"),
+            Spectrum.right_label.label("spectrum_right_label"),
+            Clue.text.label("clue_text"),
+            cast(literal(None), db.Float).label("personal_position"),
+            cast(literal(None), db.Float).label("predicted_average_position"),
+            Clue.target_position.label("target_position"),
+        )
+        .select_from(Clue)
+        .outerjoin(User, Clue.author_user_id == User.id)
+        .outerjoin(Spectrum, Clue.spectrum_id == Spectrum.id)
+        .filter(Clue.is_seed.is_(False))
+    )
+    return guess_activity.union_all(clue_activity).subquery()
+
+
+def serialize_activity_row(row) -> dict:
+    # Foreign keys should make every relationship below available. If historical
+    # data is ever damaged or imported without constraints, keep the row visible
+    # with an explicit fallback and emit an error that can be investigated.
+    if row.user_id is None or not row.username:
+        current_app.logger.error(
+            "Activity %s %s points at a missing user.",
+            row.activity_type,
+            row.record_id,
+        )
+    if row.clue_id is None or row.clue_text is None:
+        current_app.logger.error(
+            "Activity %s %s points at a missing clue.",
+            row.activity_type,
+            row.record_id,
+        )
+    if row.spectrum_id is None or row.spectrum_left_label is None or row.spectrum_right_label is None:
+        current_app.logger.error(
+            "Activity %s %s points at a missing spectrum.",
+            row.activity_type,
+            row.record_id,
+        )
+    if row.created_at is None:
+        current_app.logger.error(
+            "Activity %s %s has no creation timestamp.",
+            row.activity_type,
+            row.record_id,
+        )
+
+    created_at = row.created_at
+    if created_at is not None and created_at.tzinfo is None:
+        # SQLite returns timezone-aware columns as naive datetime objects even
+        # though this app stores UTC. Reattaching UTC before creating the ISO
+        # value prevents browsers from misreading the stored value as local time.
+        created_at = created_at.replace(tzinfo=timezone.utc)
+
+    return {
+        "record_id": row.record_id,
+        "activity_type": row.activity_type,
+        "created_at_iso": created_at.isoformat() if created_at is not None else "",
+        "username": row.username or f"Missing user ({row.user_id or 'unknown id'})",
+        "is_guest": bool(row.is_guest),
+        "spectrum_left_label": row.spectrum_left_label or "Missing spectrum",
+        "spectrum_right_label": row.spectrum_right_label or "Missing spectrum",
+        "clue_text": row.clue_text or "Missing clue",
+        "personal_position": row.personal_position,
+        "predicted_average_position": row.predicted_average_position,
+        "target_position": row.target_position,
+    }
+
+
+@web_bp.get("/activity")
+@login_required
+def activity():
+    user = current_user()
+    if user is None:
+        current_app.logger.error("login_required allowed a missing user into the Activity page.")
+        abort(403)
+    if not is_admin_user(user):
+        abort(403)
+
+    activity = activity_query()
+    total_rows = db.session.query(func.count()).select_from(activity).scalar() or 0
+    page_count = max(1, math.ceil(total_rows / ACTIVITY_PAGE_SIZE))
+
+    # Flask returns None for absent and non-integer typed query parameters. Both
+    # those cases, zero, and negative values normalize to the first page, while
+    # values beyond the end normalize to the final available page.
+    requested_page = request.args.get("page", type=int)
+    page = min(max(requested_page or 1, 1), page_count)
+
+    # IDs are unique only within their source table, so activity type provides a
+    # final stable tie-breaker after the requested timestamp-descending and
+    # record-ID-descending ordering.
+    rows = (
+        db.session.query(activity)
+        .order_by(
+            activity.c.created_at.desc(),
+            activity.c.record_id.desc(),
+            activity.c.activity_type.asc(),
+        )
+        .offset((page - 1) * ACTIVITY_PAGE_SIZE)
+        .limit(ACTIVITY_PAGE_SIZE)
+        .all()
+    )
+
+    return render_template(
+        "activity.html",
+        activity_rows=[serialize_activity_row(row) for row in rows],
+        page=page,
+        page_count=page_count,
+        total_rows=total_rows,
+    )

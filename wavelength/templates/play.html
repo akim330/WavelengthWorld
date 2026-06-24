@@ -12,6 +12,9 @@
       {% if not session.is_guest %}
         <a href="{{ url_for('web.friends') }}" data-friend-nav-link>Friends</a>
       {% endif %}
+      {% if is_admin %}
+        <a href="{{ url_for('web.activity') }}">Activity</a>
+      {% endif %}
     </nav>
     <form action="{{ url_for('web.logout') }}" method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
