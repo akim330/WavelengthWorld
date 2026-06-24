@@ -625,12 +625,14 @@ def friend_comparison(friend_id: int):
                 "spectrum": clue.spectrum.label,
                 **serialize_spectrum_poles(clue.spectrum),
                 "clue_text": clue.text,
-                # Friend-written clue rows need both the player's personal
-                # opinion and their scored average-opinion guess so the friends
-                # page can compare those two actions directly instead of
-                # showing the author target/global average markers.
+                # Friend-written clue rows expose both the original scoring
+                # context (target plus resulting global average) and the
+                # player's own opinion/guess pair so the comparison graphic can
+                # show the full mechanic in one place.
+                "friend_target_position": round(clue.target_position, 2),
                 "your_personal_position": round(guess.personal_position, 2),
                 "your_predicted_average_position": round(guess.predicted_average_position, 2),
+                "current_global_average": round_or_none(result.global_average),
                 "guess_count": result.guess_count,
                 "status": result.status,
             }
@@ -660,12 +662,13 @@ def friend_comparison(friend_id: int):
                 "spectrum": clue.spectrum.label,
                 **serialize_spectrum_poles(clue.spectrum),
                 "clue_text": clue.text,
-                # Player-written clue rows need the friend's personal opinion
-                # alongside their scored guess so the comparison graphic can
-                # show how that friend felt versus where they predicted the
-                # crowd average would land.
+                # Player-written clue rows likewise preserve the scoring
+                # context while also exposing the friend's opinion/guess pair
+                # for the richer comparison graphic on the friends page.
+                "your_target_position": round(clue.target_position, 2),
                 "friend_personal_position": round(guess.personal_position, 2),
                 "friend_predicted_average_position": round(guess.predicted_average_position, 2),
+                "current_global_average": round_or_none(result.global_average),
                 "guess_count": result.guess_count,
                 "status": result.status,
             }

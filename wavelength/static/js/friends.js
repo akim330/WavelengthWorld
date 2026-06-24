@@ -156,37 +156,47 @@
   }
 
   function renderClueComparisonGraphic(row) {
-    // Friend clue rows now compare the player's own opinion against their
-    // scored guess so the mini-graphic answers "what did I think?" versus
-    // "where did I predict the crowd would land?" at a glance.
+    // Friend clue rows keep the original scoring reference points visible
+    // while also showing the player's personal opinion and scored guess, so
+    // the row explains both the mechanic and the player's two separate inputs.
     const arcHtml = window.WavelengthHistoryGraphics.renderHistoryArc({
-        ariaLabel: 'Blue pin shows your opinion. Purple pin shows your guess.',
+        bandCenter: row.current_global_average,
+        ariaLabel: 'Black pin shows the friend target. Blue pin shows your opinion. Purple pin shows your guess. Red pin shows the global average centered in the scoring bands.',
         markers: [
+          { value: row.friend_target_position, className: 'history-marker-target' },
           { value: row.your_personal_position, className: 'history-marker-you' },
           { value: row.your_predicted_average_position, className: 'history-marker-friend' },
+          { value: row.current_global_average, className: 'history-marker-average' },
         ],
       });
     const legendHtml = renderLegend([
+        { className: 'history-legend-target', label: 'Friend target' },
         { className: 'history-legend-you', label: 'Your opinion' },
         { className: 'history-legend-friend', label: 'Your guess' },
+        { className: 'history-legend-average', label: 'Global average' },
       ]);
     return renderComparisonDiagram(row, arcHtml, legendHtml);
   }
 
   function renderYourClueComparisonGraphic(row) {
-    // Player clue rows mirror the same comparison from the friend's point of
-    // view so both tabs use a consistent color language: blue for opinion and
-    // purple for the scored average-opinion guess.
+    // Player clue rows mirror the same full set of markers from the friend's
+    // perspective so both tabs use the same color language without losing the
+    // target and scoring-band context.
     const arcHtml = window.WavelengthHistoryGraphics.renderHistoryArc({
-        ariaLabel: 'Blue pin shows your friend opinion. Purple pin shows your friend guess.',
+        bandCenter: row.current_global_average,
+        ariaLabel: 'Black pin shows your target. Blue pin shows your friend opinion. Purple pin shows your friend guess. Red pin shows the global average centered in the scoring bands.',
         markers: [
+          { value: row.your_target_position, className: 'history-marker-target' },
           { value: row.friend_personal_position, className: 'history-marker-you' },
           { value: row.friend_predicted_average_position, className: 'history-marker-friend' },
+          { value: row.current_global_average, className: 'history-marker-average' },
         ],
       });
     const legendHtml = renderLegend([
+        { className: 'history-legend-target', label: 'Your target' },
         { className: 'history-legend-you', label: 'Friend opinion' },
         { className: 'history-legend-friend', label: 'Friend guess' },
+        { className: 'history-legend-average', label: 'Global average' },
       ]);
     return renderComparisonDiagram(row, arcHtml, legendHtml);
   }
